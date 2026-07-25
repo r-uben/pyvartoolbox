@@ -15,7 +15,7 @@ from .hd import HistoricalDecomposition, compute_hd
 from .ident import PARTIAL, SCHEMES, impact_matrix, proxy_iv
 from .lp import LocalProjection, local_projection, newey_west_se
 from .model import VARmodel
-from .plot import plot_hd, plot_irf, plot_vd
+from .plot import plot_hd, plot_irf, plot_lp, plot_vd
 from .posterior import draw_posterior, wishart
 from .sign import (
     NarrativeDominance,
@@ -23,6 +23,7 @@ from .sign import (
     SignRestrictedIRF,
     sign_restricted_irf,
 )
+from .style import despine, palette, settings, use_style
 
 __version__ = "0.5.0"
 
@@ -33,6 +34,11 @@ __all__ = [
     "plot_irf",
     "plot_vd",
     "plot_hd",
+    "plot_lp",
+    "use_style",
+    "settings",
+    "palette",
+    "despine",
     "draw_posterior",
     "wishart",
     "local_projection",

@@ -156,7 +156,8 @@ REPLICATIONS = {
 def _save(fig, outdir: Path, name: str) -> Path:
     outdir.mkdir(parents=True, exist_ok=True)
     path = outdir / f"{name}.png"
-    fig.savefig(path, dpi=130, bbox_inches="tight")
+    # dpi and bbox come from savefig.* in config.yaml.
+    fig.savefig(path)
     return path
 
 
@@ -165,7 +166,9 @@ def plot(name: str, result: dict, outdir: Path) -> list[Path]:
     import matplotlib.pyplot as plt
 
     from .plot import plot_irf
+    from .style import despine, use_style
 
+    cfg = use_style()
     written = []
     if name == "sw2001":
         b = result["bands"]
@@ -194,17 +197,34 @@ def plot(name: str, result: dict, outdir: Path) -> list[Path]:
             )
         )
     elif name == "jt2025":
-        fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+        w = cfg["figure"]["panel_width"] * 2.1
+        fig, axes = plt.subplots(
+            1, 2, figsize=(w, cfg["figure"]["panel_height"] * 1.4)
+        )
         for ax, key, title in zip(
             axes, ("ols", "iv"), ("LP-OLS: CPI", "LP-IV: unemployment"), strict=True
         ):
             lp = result[key]
             h = np.arange(len(lp.ir))
-            ax.fill_between(h, lp.lower, lp.upper, alpha=0.25)
-            ax.plot(h, lp.ir, linewidth=2)
-            ax.axhline(0, linestyle="--", linewidth=0.8, color="0.4")
+            ax.axhline(
+                0,
+                linestyle=cfg["line"]["zero_style"],
+                linewidth=cfg["line"]["zero_width"],
+                color=cfg["line"]["zero_color"],
+            )
+            ax.fill_between(
+                h, lp.lower, lp.upper,
+                color=cfg["color"]["primary"],
+                alpha=cfg["color"]["band_alpha"], linewidth=0,
+            )
+            ax.plot(h, lp.ir, color=cfg["color"]["primary"])
             ax.set_title(title)
             ax.set_xlabel("horizon")
+            ax.margins(x=0)
+            from .plot import _integer_axis
+
+            _integer_axis(ax)
+            despine(ax)
         fig.tight_layout()
         written.append(_save(fig, outdir, "jt2025_lp"))
     return written

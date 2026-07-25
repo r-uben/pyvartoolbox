@@ -1,0 +1,83 @@
+# Centralised figure styling for pyvartoolbox.
+#
+# This file is the single source of truth. `pyvartoolbox.style` translates it
+# into matplotlib rcParams and exposes the parts rcParams cannot express —
+# semantic colours, per-panel sizing, and font-discovery preferences.
+#
+# Override without editing this file:
+#     vt.use_style("my_config.yaml")            # a full replacement
+#     vt.use_style(overrides={"font": {"size": 12}})   # a partial patch
+
+font:
+  # Tried in order. Latin Modern is the TeX default and is usually present via a
+  # TeX distribution rather than as a system font, so style.py also searches
+  # common TeX Live / MiKTeX locations and registers what it finds.
+  # cmr10 ships with matplotlib and is Computer Modern, of which Latin Modern is
+  # a direct descendant, so the fallback is visually near-identical.
+  family: [Latin Modern Roman, CMU Serif, cmr10, STIXGeneral, DejaVu Serif]
+  size: 10.0
+  # 'cm' matches Computer Modern / Latin Modern for maths; 'stix' is the
+  # fallback when neither is available.
+  mathtext: cm
+  # Only enable if a working LaTeX install is on PATH; it is slow and fails hard
+  # on missing packages, so it is off by default even when latex is present.
+  usetex: false
+
+axes:
+  # The main request: drop the top and right frame.
+  spines: [left, bottom]
+  linewidth: 0.7
+  grid: false
+  grid_alpha: 0.25
+  grid_linewidth: 0.5
+  title_size: 10.5
+  title_weight: normal
+  label_size: 9.5
+  tick_size: 8.5
+  # Pull tick marks outward and shorten them; the default is heavy.
+  tick_direction: out
+  tick_length: 3.0
+  tick_width: 0.7
+
+line:
+  width: 1.6
+  # The horizontal rule at zero on every impulse-response panel.
+  zero_color: "#8a8a8a"
+  zero_width: 0.7
+  zero_style: "--"
+
+color:
+  # Deep blue, close to the pantone('Blue') the MATLAB toolbox uses, so figures
+  # from the two are comparable side by side.
+  primary: "#1f4e79"
+  secondary: "#a4342c"
+  band_alpha: 0.20
+  # Categorical cycle for variance decompositions and multi-series panels.
+  # Ordered so adjacent entries stay distinguishable in greyscale.
+  palette:
+    - "#1f4e79"
+    - "#a4342c"
+    - "#4c8c72"
+    - "#c98b2e"
+    - "#6b5b95"
+    - "#7f8c8d"
+
+figure:
+  # Per-panel size in inches; the grid multiplies these by its shape.
+  panel_width: 3.1
+  panel_height: 2.15
+  dpi: 130
+  facecolor: white
+  # Extra width reserved for row labels in an IRF grid.
+  label_pad: 0.6
+
+legend:
+  frameon: false
+  fontsize: 8.5
+
+savefig:
+  dpi: 300
+  bbox: tight
+  pad: 0.03
+  transparent: false
+  format: png

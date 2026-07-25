@@ -322,3 +322,27 @@ shock raises the funds rate and lowers output and prices; the demand shock has n
 permanent effect on output; the narrative constraints tighten the identified
 set). The test suite asserts those directions, so a wiring error — wrong column,
 flipped shock, misaligned instrument — fails CI.
+
+## Figure styling
+
+All appearance is centralised in [`src/pyvartoolbox/config.yaml`](src/pyvartoolbox/config.yaml)
+— Latin Modern, no top or right spine, a restrained palette, integer horizon
+ticks. Nothing in the plotting code hard-codes a colour, size or font.
+
+```python
+vt.use_style()                                    # shipped defaults
+vt.use_style(overrides={"font": {"size": 12}})    # patch one key
+vt.use_style("house_style.yaml")                  # full replacement
+```
+
+Latin Modern normally ships with a TeX distribution rather than as a system
+font, so the style module searches common TeX Live and MiKTeX locations and
+registers what it finds. Failing that it falls back through CMU Serif, then
+matplotlib's bundled `cmr10` — Computer Modern, of which Latin Modern is a
+direct descendant — so the result stays close. `vt.style.active_font()` reports
+which one actually resolved, because a silent fallback is hard to spot.
+
+Why YAML rather than matplotlib's own `.mplstyle`: a style sheet can only carry
+rcParams. It has no way to express "this colour means *confidence band*" or "an
+IRF panel is 3.1 × 2.15 inches", both of which the plotting code needs. The YAML
+is the single source and emits rcParams, rather than running two config systems.
