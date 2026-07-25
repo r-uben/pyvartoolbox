@@ -49,7 +49,7 @@ Working today:
 | External instruments combined with sign restrictions | ⬜ planned |
 | Historical decompositions | ✅ |
 | Local projections (OLS, Newey–West, long-difference) | ✅ |
-| LP-IV (instrumented local projections) | ⬜ planned |
+| LP-IV (instrumented local projections) | ✅ |
 | JAX backend for the bootstrap | ✅ |
 | JAX backend for rotation sampling | ⬜ planned |
 | Plotting helpers (IRF grid, VD, HD) | ✅ |

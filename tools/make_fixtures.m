@@ -125,6 +125,46 @@ end
 dump(nw, q('seNW'));
 fprintf('jt2025: nobs=%d H=%d\n', size(ENDO,1), LPopt.nsteps);
 
+%% LP-IV — Jorda and Taylor (2025) section 3, unemployment on FFR
+% Mirrors GO_JT2025.m: 1985m1-2000m1, RRCG shock as external instrument.
+raw_iv = readcell(fullfile(TB, 'Replic/JT2025/JT2025_Data.xlsx'), 'Sheet', 'Ex6');
+mn_iv  = raw_iv(2, 2:end);
+dts_iv = raw_iv(3:end, 1);
+d_iv   = cellfun(@double, raw_iv(3:end, 2:end));
+
+j0 = find(strcmp(dts_iv, '1985m1'));
+j1 = find(strcmp(dts_iv, '2000m1'));
+civ = @(name) d_iv(j0:j1, strcmp(mn_iv, name));
+
+ENDO_IV  = civ('urate');
+TREAT_IV = civ('ffr');
+CTRL_IV  = [civ('urate') civ('infl') civ('ffr')];
+INSTR    = civ('RRCGShock');
+
+LPo          = LPoption;
+LPo.nsteps   = 49;
+LPo.longdiff = 1;
+LPo.impact   = 1;
+LPo.pctg     = 95;
+LPo.IV       = INSTR;
+LPo.nlag_iv  = 6;
+LPIV = LPmodel(ENDO_IV, TREAT_IV, CTRL_IV, 6, 1, LPo);
+
+r = @(suffix) fullfile(OUTDIR, ['jt2025iv_' suffix '.csv']);
+dump([ENDO_IV TREAT_IV CTRL_IV], r('data'));
+dump(INSTR,     r('iv'));
+dump(LPIV.IR,   r('IR'));
+dump(LPIV.INF,  r('INF'));
+dump(LPIV.SUP,  r('SUP'));
+se_iv = zeros(LPo.nsteps,1); fs = zeros(LPo.nsteps,1);
+for hh = 1:LPo.nsteps
+    se_iv(hh) = LPIV.(['h' num2str(hh)]).se_iv;
+    fs(hh)    = LPIV.(['h' num2str(hh)]).Fstat_fs;
+end
+dump(se_iv, r('se'));
+dump(fs,    r('Fstat'));
+fprintf('jt2025iv: nobs=%d H=%d\n', size(ENDO_IV,1), LPo.nsteps);
+
 disp('done');
 
 function dump(M, fname)

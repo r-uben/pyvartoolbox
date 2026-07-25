@@ -81,7 +81,7 @@ matrices.
 Acceptance criterion: numpy and JAX backends agree to 1e-10 on the 02 fixtures
 under a fixed seed, and the JAX path is measurably faster at `nboot >= 1000`.
 
-## 08 — Local projections ✅ (OLS branch; LP-IV outstanding)
+## 08 — Local projections ✅ (OLS and IV)
 
 Port `LPmodel.m`: OLS and IV local projections with Newey–West standard errors.
 Independent of 03–07; can be done in parallel.

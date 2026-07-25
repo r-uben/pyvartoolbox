@@ -64,6 +64,8 @@ class LocalProjection:
     ci: float
     nobs: np.ndarray
     beta: list = field(default_factory=list)
+    #: First-stage F statistic per horizon; NaN under OLS.
+    first_stage_f: np.ndarray | None = None
 
 
 def local_projection(
@@ -76,6 +78,8 @@ def local_projection(
     ci: float = 0.95,
     unit_shock: bool = False,
     long_diff: bool = False,
+    iv: np.ndarray | None = None,
+    nlags_iv: int = 0,
 ) -> LocalProjection:
     """Estimate a local projection of ``endo`` on ``treat``.
 
@@ -103,6 +107,16 @@ def local_projection(
         Project the long difference ``y_{t+h} - y_{t-1}`` rather than the level
         ``y_{t+h}``. Standard when the outcome is a log level and the object of
         interest is the cumulative response.
+    iv : array (nobs,), optional
+        External instrument. When given, ``treat`` is treated as an *endogenous*
+        treatment and each horizon is estimated by 2SLS rather than OLS, with
+        Frisch-Waugh partialling of the controls out of outcome, treatment and
+        instruments within the horizon-specific sample.
+    nlags_iv : int
+        Lags of the instrument to add as extra instruments. Must not exceed
+        ``nlags``. With ``nlags_iv = 0`` the model is just identified and the
+        Newey-West bandwidth is the horizon; otherwise the bandwidth is fixed at
+        ``nlags_iv``, matching upstream (and Stata's ``vce(hac nw nlags_iv)``).
 
     Notes
     -----
@@ -144,10 +158,29 @@ def local_projection(
 
     controls = np.hstack(blocks) if blocks else np.empty((neff, 0))
 
-    if unit_shock:
+    do_iv = iv is not None
+    if do_iv:
+        iv = np.asarray(iv, dtype=float)
+        if iv.ndim == 1:
+            iv = iv[:, None]
+        if iv.shape[0] != endo.shape[0]:
+            raise ValueError(
+                f"iv has {iv.shape[0]} rows, expected {endo.shape[0]} to align"
+            )
+        if nlags_iv > nlags:
+            raise ValueError(
+                f"nlags_iv ({nlags_iv}) cannot exceed nlags ({nlags}): the extra "
+                "instrument lags would reach outside the trimmed sample"
+            )
+        # Under IV the normalisation applies to the endogenous treatment.
+        d_norm = 1.0 if unit_shock else s.std(ddof=1)
+        shock = s
+    elif unit_shock:
+        d_norm = 1.0
         shock = s
     else:
-        # Population-style standardisation with ddof=1, matching MATLAB zscore.
+        # Standardisation with ddof=1, matching MATLAB's zscore.
+        d_norm = 1.0
         shock = (s - s.mean()) / s.std(ddof=1)
 
     RHS = np.column_stack([shock, controls])
@@ -156,6 +189,7 @@ def local_projection(
     ir = np.full(horizon + 1, np.nan)
     se = np.full(horizon + 1, np.nan)
     nobs = np.zeros(horizon + 1, dtype=int)
+    fstat = np.full(horizon + 1, np.nan)
     betas = []
 
     # y_{t-1} aligned to the same trimmed sample as y_t.
@@ -174,14 +208,48 @@ def local_projection(
                 f"regressors and a bandwidth of {h}; shorten the horizon or "
                 "the lag order"
             )
-        X = RHS[:n_h]
-        beta, *_ = np.linalg.lstsq(X, Y, rcond=None)
-        resid = Y - X @ beta
-        # Bandwidth h: the horizon-h projection residual is MA(h) by construction.
-        ir[h] = beta[0]
-        se[h] = newey_west_se(X, resid, h)[0]
+        if not do_iv:
+            X = RHS[:n_h]
+            beta, *_ = np.linalg.lstsq(X, Y, rcond=None)
+            resid = Y - X @ beta
+            # Bandwidth h: the horizon-h residual is MA(h) by construction.
+            ir[h] = beta[0]
+            se[h] = newey_west_se(X, resid, h)[0]
+            betas.append(beta)
+        else:
+            C = controls[:n_h]
+            r_y = _partial(Y, C)
+            r_d = _partial(s[:n_h], C)
+
+            # Column k holds lag k of the instrument over the trimmed window.
+            Z = np.column_stack(
+                [iv[nlags - k : nlags + n_h - k, 0] for k in range(nlags_iv + 1)]
+            )
+            r_z = _partial(Z, C)
+
+            d_hat = r_z @ np.linalg.lstsq(r_z, r_d, rcond=None)[0]
+            denom = d_hat @ r_d
+            if denom == 0:
+                raise ValueError(
+                    f"instrument is uncorrelated with the treatment at horizon {h}"
+                )
+            b = (d_hat @ r_y) / denom
+            eps = r_y - b * r_d
+
+            # Just-identified: bandwidth is the horizon. Overidentified: fixed at
+            # nlags_iv, matching upstream.
+            bw = nlags_iv if nlags_iv > 0 else h
+            g = d_hat * eps
+            se_h = newey_west_se(np.ones((n_h, 1)), g - g.mean(), bw)[0] / abs(
+                denom / n_h
+            )
+
+            ir[h] = b * d_norm
+            se[h] = se_h * d_norm
+            betas.append(np.array([b]))
+            fstat[h] = _first_stage_f(r_d, r_z)
+
         nobs[h] = n_h
-        betas.append(beta)
 
     return LocalProjection(
         ir=ir,
@@ -191,4 +259,25 @@ def local_projection(
         ci=ci,
         nobs=nobs,
         beta=betas,
+        first_stage_f=fstat if do_iv else None,
+    )
+
+
+def _partial(y: np.ndarray, controls: np.ndarray) -> np.ndarray:
+    """Residualise ``y`` on ``controls`` (Frisch-Waugh)."""
+    if controls.shape[1] == 0:
+        return y
+    return y - controls @ np.linalg.lstsq(controls, y, rcond=None)[0]
+
+
+def _first_stage_f(r_d: np.ndarray, r_z: np.ndarray) -> float:
+    """Joint F statistic for the instruments in the residualised first stage."""
+    n, kz = r_z.shape
+    resid = r_d - r_z @ np.linalg.lstsq(r_z, r_d, rcond=None)[0]
+    rss_unrestricted = resid @ resid
+    rss_restricted = r_d @ r_d
+    if n <= kz or rss_unrestricted <= 0:
+        return float("nan")
+    return float(
+        ((rss_restricted - rss_unrestricted) / kz) / (rss_unrestricted / (n - kz))
     )

@@ -140,3 +140,58 @@ def test_bandwidth_cannot_exceed_the_sample():
     X = np.column_stack([np.ones(10), rng.standard_normal(10)])
     with pytest.raises(ValueError, match="needs more than"):
         newey_west_se(X, rng.standard_normal(10), 10)
+
+
+class TestLPIV:
+    """Instrumented local projections, validated against JT2025 section 3:
+    unemployment on the federal funds rate, instrumented by the Romer-Romer
+    RRCG shock with 6 instrument lags, 1985m1-2000m1."""
+
+    @pytest.fixture
+    def fit(self):
+        data = np.loadtxt(
+            FIXTURES / "jt2025iv_data.csv", delimiter=",", ndmin=2
+        )
+        instr = np.loadtxt(FIXTURES / "jt2025iv_iv.csv", delimiter=",")
+        return local_projection(
+            endo=data[:, 0],
+            treat=data[:, 1],
+            ctrl=data[:, 2:],
+            nlags=6,
+            det=1,
+            horizon=48,
+            ci=0.95,
+            unit_shock=True,
+            long_diff=True,
+            iv=instr,
+            nlags_iv=6,
+        )
+
+    def _ref(self, name):
+        return np.loadtxt(FIXTURES / f"jt2025iv_{name}.csv", delimiter=",")
+
+    def test_impulse_responses(self, fit):
+        np.testing.assert_allclose(fit.ir, self._ref("IR"), rtol=0, atol=1e-8)
+
+    def test_standard_errors(self, fit):
+        np.testing.assert_allclose(fit.se, self._ref("se"), rtol=0, atol=1e-8)
+
+    def test_confidence_bands(self, fit):
+        np.testing.assert_allclose(fit.lower, self._ref("INF"), rtol=0, atol=1e-8)
+        np.testing.assert_allclose(fit.upper, self._ref("SUP"), rtol=0, atol=1e-8)
+
+    def test_first_stage_f(self, fit):
+        np.testing.assert_allclose(
+            fit.first_stage_f, self._ref("Fstat"), rtol=1e-9, atol=0
+        )
+
+    def test_instrument_lags_cannot_exceed_control_lags(self):
+        with pytest.raises(ValueError, match="cannot exceed nlags"):
+            local_projection(
+                np.zeros(50), np.zeros(50), nlags=2, iv=np.zeros(50), nlags_iv=5
+            )
+
+    def test_ols_path_reports_no_first_stage(self):
+        data = _load("data")
+        res = local_projection(data[:, 0], data[:, 1], nlags=4, horizon=3)
+        assert res.first_stage_f is None
