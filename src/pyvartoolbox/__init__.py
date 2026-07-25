@@ -14,6 +14,7 @@ from .bootstrap import BootstrapIRF, bootstrap_irf
 from .hd import HistoricalDecomposition, compute_hd
 from .ident import PARTIAL, SCHEMES, impact_matrix, proxy_iv
 from .model import VARmodel
+from .sign import SignRestrictedIRF, sign_restricted_irf
 
 __version__ = "0.1.0"
 
@@ -21,6 +22,8 @@ __all__ = [
     "VARmodel",
     "bootstrap_irf",
     "BootstrapIRF",
+    "sign_restricted_irf",
+    "SignRestrictedIRF",
     "compute_hd",
     "HistoricalDecomposition",
     "impact_matrix",

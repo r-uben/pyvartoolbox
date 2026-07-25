@@ -43,7 +43,8 @@ Working today:
 | Impulse responses and forecast error variance decomposition | ✅ |
 | Residual and wild bootstrap percentile bands | ✅ |
 | External instruments (proxy SVAR) | ✅ |
-| Sign restrictions / narrative sign restrictions | ⬜ planned |
+| Sign restrictions (impact and multi-horizon) | ✅ |
+| Narrative sign restrictions | ⬜ planned |
 | External instruments combined with sign restrictions | ⬜ planned |
 | Historical decompositions | ✅ |
 | Local projections (OLS and IV, Newey–West) | ⬜ planned |
@@ -156,3 +157,24 @@ d.check(m.y)     # True: the components reconstruct the data
 
 The first `nlags` rows are `NaN` — they are the presample and have no
 decomposition.
+
+## Sign restrictions
+
+Restrictions are an `(nvar, nshock)` array of `+1`, `-1`, `0` (unrestricted):
+
+```python
+R = np.array([[ 1, -1],    # var 0: shock 0 raises it, shock 1 lowers it
+              [ 1,  1]])   # var 1: both shocks raise it
+res = vt.sign_restricted_irf(m, R, horizon=40, ndraws=1000, sr_hor=4, seed=0)
+res.median, res.lower, res.upper
+res.acceptance_rate
+```
+
+`sr_hor=4` imposes the pattern over the first four horizons rather than on
+impact only.
+
+**These bands are not the same object as the bootstrap bands.** They describe
+the *identified set* at the estimated coefficients — identification uncertainty
+only. They do not include parameter uncertainty, so they are not posterior
+credible bands. Combining the two requires drawing coefficients as well, which
+is not yet implemented.
