@@ -45,7 +45,7 @@ Working today:
 | External instruments (proxy SVAR) | ✅ |
 | Sign restrictions (impact and multi-horizon) | ✅ |
 | Posterior draws (flat-prior Normal-inverse-Wishart) | ✅ |
-| Narrative sign restrictions | ⬜ planned |
+| Narrative sign restrictions (sign and dominance) | ✅ |
 | External instruments combined with sign restrictions | ⬜ planned |
 | Historical decompositions | ✅ |
 | Local projections (OLS, Newey–West, long-difference) | ✅ |
@@ -198,3 +198,22 @@ Univariate by design — one outcome at a time. Lags of the outcome are **not**
 added automatically; include it in `ctrl` if you want to control for them, which
 is the usual specification. Standard errors are Newey-West with bandwidth equal
 to the horizon, since the horizon-`h` projection residual is MA(`h`).
+
+### Narrative restrictions
+
+```python
+from pyvartoolbox import NarrativeSign, NarrativeDominance
+
+res = vt.sign_restricted_irf(m, R, horizon=40, ndraws=1000, narrative=[
+    NarrativeSign(period=120, shock=0, sign=1),        # shock 0 was positive then
+    NarrativeDominance(period=120, shock=0, variable=2),  # and drove variable 2
+])
+```
+
+`period` indexes the original sample; the lag trim is applied internally.
+
+Upstream — and therefore this port — applies narrative restrictions as a
+**rejection filter**: a draw violating any constraint is discarded. Antolín-Díaz
+and Rubio-Ramírez (2018) instead reweight accepted draws by an importance
+weight. The two agree on the support of the posterior but not its shape, so
+results here will not exactly reproduce the paper.

@@ -144,6 +144,7 @@ def sign_restricted_irf(
     ci: float = 0.90,
     seed: int | None = None,
     posterior: bool = True,
+    narrative: list | None = None,
 ) -> SignRestrictedIRF:
     """Impulse responses over the sign-identified set.
 
@@ -164,6 +165,16 @@ def sign_restricted_irf(
         the rotation. The resulting bands describe the identified set alone and
         are **not** comparable to published sign-restriction figures — useful for
         seeing how much of the width is identification rather than estimation.
+    narrative : list of NarrativeSign or NarrativeDominance, optional
+        Narrative sign restrictions in the manner of Antolin-Diaz and
+        Rubio-Ramirez (2018): constraints on the structural shocks at specific
+        dates, applied on top of the sign pattern.
+
+        Note that upstream — and therefore this port — applies these as a
+        *rejection* filter: a draw violating any narrative constraint is
+        discarded. The original paper instead reweights accepted draws by an
+        importance weight. The two agree on the support of the posterior but not
+        on its shape, so results here will not exactly reproduce the paper's.
     """
     if not 0.0 < ci < 1.0:
         raise ValueError(f"ci must be in (0, 1), got {ci}")
@@ -178,16 +189,39 @@ def sign_restricted_irf(
             psi = drawn.wold(horizon)
         else:
             drawn, psi = model, psi_fixed
+    sign_ok = 0
+    for _ in range(ndraws):
+        if posterior:
+            drawn = draw_posterior(model, rng)
+            psi = drawn.wold(horizon)
+        else:
+            drawn, psi = model, psi_fixed
         B, ntried = draw_rotation(drawn, restrictions, rng, sr_hor, max_rot)
         attempted += ntried
-        if B is not None:
-            accepted.append(psi @ B)
+        if B is None:
+            continue
+        sign_ok += 1
+        if narrative and not _narrative_holds(
+            B, drawn.resid, drawn.nlags, narrative
+        ):
+            continue
+        accepted.append(psi @ B)
 
     if len(accepted) < 2:
+        # Distinguish the two very different failure modes, because the fix is
+        # different: an infeasible sign pattern versus narrative constraints
+        # that no admissible rotation happens to satisfy.
+        if sign_ok < 2:
+            raise RuntimeError(
+                f"only {sign_ok} of {ndraws} draws found a rotation satisfying "
+                "the sign pattern; it is likely infeasible for this data, or "
+                "max_rot is too small"
+            )
         raise RuntimeError(
-            f"only {len(accepted)} of {ndraws} draws found an admissible "
-            "rotation; the sign pattern is likely infeasible for this data, or "
-            "max_rot is too small"
+            f"{sign_ok} of {ndraws} draws satisfied the sign pattern but only "
+            f"{len(accepted)} also satisfied the narrative constraints; the "
+            "narrative restrictions are likely inconsistent with the sign "
+            "pattern on this sample"
         )
 
     draws = np.stack(accepted)
@@ -204,3 +238,51 @@ def sign_restricted_irf(
         naccepted=len(accepted),
         nattempted=attempted,
     )
+
+
+@dataclass
+class NarrativeSign:
+    """The structural shock ``shock`` at ``period`` must have sign ``sign``.
+
+    ``period`` indexes the original sample, not the residual sample; the lag
+    trim is applied internally.
+    """
+
+    period: int
+    shock: int
+    sign: int
+
+
+@dataclass
+class NarrativeDominance:
+    """Shock ``shock`` must be the dominant driver of ``variable`` at ``period``.
+
+    "Dominant" in the Antolin-Diaz and Rubio-Ramirez (2018) sense: the absolute
+    contribution of this shock exceeds the summed absolute contributions of all
+    the others.
+    """
+
+    period: int
+    shock: int
+    variable: int
+
+
+def _narrative_holds(B, resid, nlags, narrative) -> bool:
+    """Check narrative constraints against the structural shocks implied by B."""
+    eps = np.linalg.solve(B, resid.T).T  # (neff, nshock)
+
+    for r in narrative:
+        t = r.period - nlags
+        if not 0 <= t < eps.shape[0]:
+            raise IndexError(
+                f"narrative period {r.period} falls outside the estimation "
+                f"sample, which starts at observation {nlags}"
+            )
+        if isinstance(r, NarrativeSign):
+            if r.sign * eps[t, r.shock] <= 0:
+                return False
+        else:
+            contrib = np.abs(B[r.variable, :] * eps[t, :])
+            if contrib[r.shock] <= contrib.sum() - contrib[r.shock]:
+                return False
+    return True

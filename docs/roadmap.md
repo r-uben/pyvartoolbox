@@ -59,7 +59,7 @@ control flow, which does not `jit`. Structure it as fixed-size batched draws
 with a boolean acceptance mask, not an early-exit loop, so the JAX backend in 07
 is a backend swap rather than a rewrite.
 
-## 06 — Narrative sign restrictions
+## 06 — Narrative sign restrictions ✅
 
 Antolín-Díaz and Rubio-Ramírez (2018): adds importance weighting over accepted
 draws. Depends on 05.

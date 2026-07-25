@@ -16,7 +16,12 @@ from .ident import PARTIAL, SCHEMES, impact_matrix, proxy_iv
 from .lp import LocalProjection, local_projection, newey_west_se
 from .model import VARmodel
 from .posterior import draw_posterior, wishart
-from .sign import SignRestrictedIRF, sign_restricted_irf
+from .sign import (
+    NarrativeDominance,
+    NarrativeSign,
+    SignRestrictedIRF,
+    sign_restricted_irf,
+)
 
 __version__ = "0.1.0"
 
@@ -31,6 +36,8 @@ __all__ = [
     "newey_west_se",
     "sign_restricted_irf",
     "SignRestrictedIRF",
+    "NarrativeSign",
+    "NarrativeDominance",
     "compute_hd",
     "HistoricalDecomposition",
     "impact_matrix",

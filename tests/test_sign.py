@@ -140,5 +140,82 @@ class TestBands:
     def test_unreachable_pattern_raises(self, y_var1):
         wide = VARmodel(np.column_stack([y_var1, y_var1[::-1]]), nlags=2)
         R = np.array([[1.0, -1.0, 1.0, -1.0]] * 4)
-        with pytest.raises(RuntimeError, match="admissible rotation"):
+        with pytest.raises(RuntimeError, match="satisfying the sign pattern"):
             sign_restricted_irf(wide, R, horizon=4, ndraws=5, sr_hor=12, max_rot=20)
+
+
+class TestNarrativeRestrictions:
+    """Antolin-Diaz and Rubio-Ramirez (2018) constraints, applied as upstream
+    applies them: a rejection filter on top of the sign pattern."""
+
+    R = np.array([[1.0, -1.0], [1.0, 1.0]])
+
+    def test_sign_restriction_on_a_date_is_enforced(self, model):
+        from pyvartoolbox.sign import NarrativeSign
+
+        narr = [NarrativeSign(period=40, shock=0, sign=1)]
+        res = sign_restricted_irf(
+            model, self.R, horizon=4, ndraws=60, seed=0, narrative=narr
+        )
+        assert res.naccepted > 0
+
+    def test_narrative_filter_only_removes_draws(self, model):
+        """Adding a narrative constraint can never raise the acceptance count
+        for a fixed seed and draw budget."""
+        from pyvartoolbox.sign import NarrativeSign
+
+        kw = dict(horizon=4, ndraws=80, seed=3)
+        plain = sign_restricted_irf(model, self.R, **kw)
+        narrowed = sign_restricted_irf(
+            model,
+            self.R,
+            narrative=[NarrativeSign(period=40, shock=0, sign=1)],
+            **kw,
+        )
+        assert narrowed.naccepted <= plain.naccepted
+
+    def test_opposite_narrative_signs_partition_the_draws(self, model):
+        """A draw satisfying "shock 0 is positive at t" cannot also satisfy
+        "shock 0 is negative at t", so together they can never accept more than
+        the unfiltered sampler. On this sample one direction is never satisfied
+        at all, which is why each call is guarded."""
+        from pyvartoolbox.sign import NarrativeSign
+
+        kw = dict(horizon=2, ndraws=120, seed=5)
+
+        def count(sign):
+            try:
+                return sign_restricted_irf(
+                    model, self.R, narrative=[NarrativeSign(40, 0, sign)], **kw
+                ).naccepted
+            except RuntimeError:
+                return 0
+
+        plain = sign_restricted_irf(model, self.R, **kw)
+        assert count(1) + count(-1) <= plain.naccepted
+
+    def test_dominance_constraint_runs_and_filters(self, model):
+        from pyvartoolbox.sign import NarrativeDominance
+
+        kw = dict(horizon=4, ndraws=100, seed=7)
+        plain = sign_restricted_irf(model, self.R, **kw)
+        dom = sign_restricted_irf(
+            model,
+            self.R,
+            narrative=[NarrativeDominance(period=40, shock=0, variable=0)],
+            **kw,
+        )
+        assert dom.naccepted <= plain.naccepted
+
+    def test_out_of_sample_period_rejected(self, model):
+        from pyvartoolbox.sign import NarrativeSign
+
+        with pytest.raises(IndexError, match="outside the estimation sample"):
+            sign_restricted_irf(
+                model,
+                self.R,
+                horizon=2,
+                ndraws=5,
+                seed=0,
+                narrative=[NarrativeSign(period=100000, shock=0, sign=1)],
+            )
