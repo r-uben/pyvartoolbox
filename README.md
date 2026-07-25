@@ -44,6 +44,7 @@ Working today:
 | Residual and wild bootstrap percentile bands | ✅ |
 | External instruments (proxy SVAR) | ✅ |
 | Sign restrictions (impact and multi-horizon) | ✅ |
+| Posterior draws (flat-prior Normal-inverse-Wishart) | ✅ |
 | Narrative sign restrictions | ⬜ planned |
 | External instruments combined with sign restrictions | ⬜ planned |
 | Historical decompositions | ✅ |
@@ -174,11 +175,14 @@ res.acceptance_rate
 `sr_hor=4` imposes the pattern over the first four horizons rather than on
 impact only.
 
-**These bands are not the same object as the bootstrap bands.** They describe
-the *identified set* at the estimated coefficients — identification uncertainty
-only. They do not include parameter uncertainty, so they are not posterior
-credible bands. Combining the two requires drawing coefficients as well, which
-is not yet implemented.
+By default the VAR coefficients are redrawn from their flat-prior posterior
+before each rotation, as upstream does, so the bands reflect parameter *and*
+identification uncertainty.
+
+Pass `posterior=False` to hold the coefficients at their OLS estimates and vary
+only the rotation. Those bands describe the identified set alone and are **not**
+comparable to published sign-restriction figures — but the gap between the two
+tells you how much of the width is identification rather than estimation.
 
 ## Local projections
 

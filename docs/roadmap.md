@@ -49,7 +49,7 @@ Port `recover_B.m`'s IV branch. This plus 06 is the main gap versus
 before sign restrictions because it is deterministic and cheap — no sampling
 layer, so it needs no JAX work to be usable.
 
-## 05 — Sign restrictions ✅ (identification uncertainty only)
+## 05 — Sign restrictions ✅ (with posterior draws)
 
 Port `SR.m` / `SignRestrictions.m`: draw an orthonormal `Q` by QR of a Gaussian
 matrix, rotate the Cholesky factor, keep draws satisfying the sign pattern.

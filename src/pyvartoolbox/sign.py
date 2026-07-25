@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .ident import _cholesky
+from .posterior import draw_posterior
 
 
 @dataclass
@@ -142,6 +143,7 @@ def sign_restricted_irf(
     max_rot: int = 500,
     ci: float = 0.90,
     seed: int | None = None,
+    posterior: bool = True,
 ) -> SignRestrictedIRF:
     """Impulse responses over the sign-identified set.
 
@@ -153,23 +155,30 @@ def sign_restricted_irf(
         Number of horizons over which restrictions must hold, counting impact.
     max_rot : int
         Rotations attempted per draw before giving up on that draw.
+    posterior : bool
+        If True (default), redraw the VAR coefficients from their flat-prior
+        posterior before each rotation, as upstream's ``SR.m`` does. Bands then
+        reflect parameter *and* identification uncertainty.
 
-    Notes
-    -----
-    Bands here reflect *identification* uncertainty only — the spread of the
-    identified set at the estimated coefficients. They are not posterior
-    credible bands and do not include parameter uncertainty; combining the two
-    requires drawing coefficients as well, which is not yet implemented.
+        Set False to hold the coefficients at their OLS estimates and vary only
+        the rotation. The resulting bands describe the identified set alone and
+        are **not** comparable to published sign-restriction figures — useful for
+        seeing how much of the width is identification rather than estimation.
     """
     if not 0.0 < ci < 1.0:
         raise ValueError(f"ci must be in (0, 1), got {ci}")
 
     rng = np.random.default_rng(seed)
-    psi = model.wold(horizon)
+    psi_fixed = None if posterior else model.wold(horizon)
 
     accepted, attempted = [], 0
     for _ in range(ndraws):
-        B, ntried = draw_rotation(model, restrictions, rng, sr_hor, max_rot)
+        if posterior:
+            drawn = draw_posterior(model, rng)
+            psi = drawn.wold(horizon)
+        else:
+            drawn, psi = model, psi_fixed
+        B, ntried = draw_rotation(drawn, restrictions, rng, sr_hor, max_rot)
         attempted += ntried
         if B is not None:
             accepted.append(psi @ B)
