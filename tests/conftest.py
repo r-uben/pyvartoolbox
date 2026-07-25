@@ -36,3 +36,15 @@ def y_small(var1):
     """Short sample: enough to estimate, small enough for a fast bootstrap."""
     A, c, sigma = var1
     return simulate_var(A, c, sigma, nobs=200, seed=11)
+
+
+def load_data(name):
+    """Replication datasets now ship inside the package.
+
+    Tests and the replications deliberately read the same files rather than
+    keeping two copies that could drift apart. MATLAB *reference outputs* stay in
+    tests/fixtures, since they are not needed at runtime.
+    """
+    from pyvartoolbox.datasets import load
+
+    return load(name)

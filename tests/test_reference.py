@@ -43,6 +43,10 @@ CASES = {
 
 
 def _load(case: str, name: str) -> np.ndarray:
+    if name in ("data", "iv", "narrperiod"):
+        from conftest import load_data
+
+        return load_data(f"{case}_{name}")
     return np.atleast_2d(
         np.loadtxt(FIXTURES / f"{case}_{name}.csv", delimiter=",", ndmin=2)
     )

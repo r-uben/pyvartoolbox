@@ -16,6 +16,10 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _load(name: str) -> np.ndarray:
+    if name == "data":
+        from conftest import load_data
+
+        return load_data("jt2025_data")
     return np.atleast_2d(
         np.loadtxt(FIXTURES / f"jt2025_{name}.csv", delimiter=",", ndmin=2)
     )
@@ -149,10 +153,10 @@ class TestLPIV:
 
     @pytest.fixture
     def fit(self):
-        data = np.loadtxt(
-            FIXTURES / "jt2025iv_data.csv", delimiter=",", ndmin=2
-        )
-        instr = np.loadtxt(FIXTURES / "jt2025iv_iv.csv", delimiter=",")
+        from conftest import load_data
+
+        data = load_data("jt2025iv_data")
+        instr = load_data("jt2025iv_iv").ravel()
         return local_projection(
             endo=data[:, 0],
             treat=data[:, 1],

@@ -164,9 +164,15 @@ def draw_rotation(
         matched = _match(candidate, restrictions, start)
         if matched is not None:
             order, flip = matched
-            # Column 0 stays the IV shock; restricted shocks follow it.
-            cols = np.concatenate([np.arange(start), order])
-            flips = np.concatenate([np.ones(start), flip])
+            # Always return a full square matrix: pre-identified columns first,
+            # then the restricted shocks, then whatever columns the restrictions
+            # did not name. Truncating to the restricted shocks would leave B
+            # singular, and the narrative check and historical decomposition both
+            # need to invert it.
+            used = set(order.tolist()) | set(range(start))
+            rest = [c for c in range(nvar) if c not in used]
+            cols = np.concatenate([np.arange(start), order, rest]).astype(int)
+            flips = np.concatenate([np.ones(start), flip, np.ones(len(rest))])
             return B[:, cols] * flips, ntried
     return None, max_rot
 
@@ -183,17 +189,23 @@ def sign_restricted_irf(
     posterior: bool = True,
     narrative: list | None = None,
     iv: np.ndarray | None = None,
+    max_reject: int = 200,
 ) -> SignRestrictedIRF:
     """Impulse responses over the sign-identified set.
 
     Parameters
     ----------
     ndraws : int
-        Number of accepted rotations to collect.
+        Number of accepted rotations to collect. Sampling continues until this
+        many draws pass every filter, not merely until this many are attempted.
     sr_hor : int
         Number of horizons over which restrictions must hold, counting impact.
     max_rot : int
         Rotations attempted per draw before giving up on that draw.
+    max_reject : int
+        Attempts allowed per requested draw before giving up entirely. Guards
+        against an infeasible specification looping forever; raise it when a
+        narrative filter has a very low acceptance rate.
     posterior : bool
         If True (default), redraw the VAR coefficients from their flat-prior
         posterior before each rotation, as upstream's ``SR.m`` does. Bands then
@@ -226,9 +238,16 @@ def sign_restricted_irf(
     rng = np.random.default_rng(seed)
     psi_fixed = None if posterior else model.wold(horizon)
 
+    # Keep going until `ndraws` rotations are actually accepted, as upstream's
+    # SR.m does. Attempting exactly ndraws times instead would silently return
+    # far fewer under a narrative filter, whose acceptance rate can be a few
+    # percent. The cap stops an infeasible specification from looping forever.
+    max_attempts = max(ndraws * max_reject, ndraws)
     accepted, attempted = [], 0
     sign_ok = 0
-    for _ in range(ndraws):
+    tries = 0
+    while len(accepted) < ndraws and tries < max_attempts:
+        tries += 1
         if posterior:
             drawn = draw_posterior(model, rng)
             psi = drawn.wold(horizon)
@@ -249,6 +268,16 @@ def sign_restricted_irf(
         ):
             continue
         accepted.append(psi @ B)
+
+    if len(accepted) < ndraws and len(accepted) >= 2:
+        import warnings
+
+        warnings.warn(
+            f"collected {len(accepted)} of {ndraws} requested draws after "
+            f"{tries} attempts; raise max_reject for tighter restrictions",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     if len(accepted) < 2:
         # Distinguish the two very different failure modes, because the fix is

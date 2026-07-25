@@ -1,6 +1,6 @@
 [project]
 name = "pyvartoolbox"
-version = "0.4.0"
+version = "0.5.0"
 description = "VAR and local-projection analysis in Python — a port of the MATLAB VAR Toolbox"
 authors = [
     {name = "Ruben Fernandez-Fuertes", email = "fernandezfuertesruben@gmail.com"}
@@ -23,6 +23,9 @@ classifiers = [
 dependencies = [
     "numpy>=1.26.0",
 ]
+
+[project.scripts]
+pyvartoolbox-replicate = "pyvartoolbox.replications:main"
 
 [project.urls]
 Homepage = "https://github.com/r-uben/pyvartoolbox"
@@ -54,6 +57,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pyvartoolbox"]
+artifacts = ["src/pyvartoolbox/data/*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

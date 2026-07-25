@@ -46,6 +46,10 @@ SR_HOR = 6
 
 
 def _load(case, name):
+    if name in ("data", "iv", "narrperiod"):
+        from conftest import load_data
+
+        return load_data(f"{case}_{name}")
     return np.atleast_2d(
         np.loadtxt(FIXTURES / f"{case}_{name}.csv", delimiter=",", ndmin=2)
     )

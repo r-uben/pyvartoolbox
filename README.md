@@ -284,3 +284,32 @@ res = vt.sign_restricted_irf(m, R_for_other_shocks, iv=z, horizon=40)
 
 Note that with `nvar = 2` the complement is one-dimensional, so there is no
 rotational freedom left at all and the remaining column is determined up to sign.
+
+## Replicating the six upstream exercises
+
+The datasets ship with the package, so every exercise runs from a clean install:
+
+```bash
+uv add "pyvartoolbox[plot]"
+pyvartoolbox-replicate all --outdir figures
+```
+
+| Exercise | What it demonstrates |
+| --- | --- |
+| `sw2001` | Cholesky IRFs with bootstrap bands, plus Table 1.B |
+| `bq1989` | Long-run zero restrictions, cumulated responses |
+| `gk2015` | Proxy SVAR against Cholesky on the same data |
+| `uhlig2005` | Sign restrictions over the first six months |
+| `adrr2018` | Narrative restrictions at October 1979 |
+| `jt2025` | Local projections, OLS and IV |
+
+Each is also importable — `from pyvartoolbox.replications import gertler_karadi_2015`
+— returning the fitted models and results rather than only figures.
+
+This is a **different** claim from the validation table above. Those tests check
+our numbers equal MATLAB's on identical specifications; these check the whole
+pipeline runs and reproduces each paper's qualitative finding (a contractionary
+shock raises the funds rate and lowers output and prices; the demand shock has no
+permanent effect on output; the narrative constraints tighten the identified
+set). The test suite asserts those directions, so a wiring error — wrong column,
+flipped shock, misaligned instrument — fails CI.

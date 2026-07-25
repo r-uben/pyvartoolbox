@@ -316,3 +316,25 @@ class TestSignPlusIV:
         # Identical up to sign across every draw.
         for col in free[1:]:
             assert np.allclose(col, free[0]) or np.allclose(col, -free[0])
+
+
+def test_partial_restrictions_still_return_a_square_matrix(y_small):
+    """Regression: restricting fewer shocks than there are variables must still
+    yield an invertible B. Truncating to the restricted columns left it singular,
+    which broke the narrative check and the historical decomposition — and was
+    invisible while every test used a square restriction matrix."""
+    m = VARmodel(y_small, nlags=2)
+    rng = np.random.default_rng(0)
+    B, _ = draw_rotation(m, np.array([[1.0], [-1.0]]), rng)
+    assert B is not None
+    assert B.shape == (m.nvar, m.nvar)
+    np.testing.assert_allclose(B @ B.T, m.sigma, atol=1e-10)
+    assert np.linalg.matrix_rank(B) == m.nvar
+
+
+def test_partial_restrictions_work_through_the_sampler(y_small):
+    m = VARmodel(y_small, nlags=2)
+    res = sign_restricted_irf(
+        m, np.array([[1.0], [-1.0]]), horizon=4, ndraws=30, seed=0
+    )
+    assert res.draws.shape == (res.naccepted, 5, 2, 2)
