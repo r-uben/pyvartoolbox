@@ -64,12 +64,18 @@ is a backend swap rather than a rewrite.
 Antolín-Díaz and Rubio-Ramírez (2018): adds importance weighting over accepted
 draws. Depends on 05.
 
-## 07 — JAX backend ✅ (bootstrap; rotation sampler outstanding)
+## 07 — JAX backend ✅ (bootstrap only — rotation sampler tried and rejected)
 
 Only for the resampling layers, behind the same public API:
 
 - bootstrap replications — `vmap` + `jit` over the resample-and-re-estimate step
-- sign-restriction rejection sampling — `vmap` over batched rotations
+- ~~sign-restriction rejection sampling~~ — implemented, measured, removed. On a
+  4-variable VAR with 800 accepted draws: numpy 0.12s, JAX 36.55s. The rotations
+  are small QR decompositions and acceptance rates are typically high, so the
+  loop is dominated by per-call dispatch, which is exactly where JAX loses.
+  Batching to amortise dispatch makes it worse still, because a high acceptance
+  rate means most of each batch is discarded. Do not retry this without a
+  workload where acceptance is genuinely low and nvar is large.
 
 Non-goals: JITing the estimator itself (one small `lstsq`), or the IRF recursion
 over horizons (sequential; `lax.scan` at best, and not the bottleneck).

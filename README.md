@@ -51,7 +51,6 @@ Working today:
 | Local projections (OLS, Newey–West, long-difference) | ✅ |
 | LP-IV (instrumented local projections) | ✅ |
 | JAX backend for the bootstrap | ✅ |
-| JAX backend for rotation sampling | ⬜ planned |
 | Plotting helpers (IRF grid, VD, HD) | ✅ |
 
 ## Validation

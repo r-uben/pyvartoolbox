@@ -8,10 +8,8 @@ Restrictions are given as an ``(nvar, nshock)`` array of ``+1`` (response must b
 non-negative), ``-1`` (non-positive), and ``0`` (unrestricted). Restrictions can
 be imposed on impact only (``sr_hor=1``) or over the first ``sr_hor`` horizons.
 
-Structured as fixed-size batched draws with an acceptance mask rather than an
-early-exit loop, so that the planned JAX backend is a backend swap rather than a
-rewrite. The matching step stays in Python because it is inherently sequential
-per draw.
+Deliberately not accelerated: a JAX backend for the rotations was implemented,
+measured, and removed. See ``docs/roadmap.md`` ticket 07 for the numbers.
 """
 
 from __future__ import annotations
@@ -120,6 +118,11 @@ def draw_rotation(
     P = _cholesky(model.sigma)
     psi = model.wold(sr_hor - 1) if sr_hor > 1 else None
 
+    # One rotation at a time, deliberately. Batching was tried, together with a
+    # JAX backend for the batch; see docs/roadmap.md ticket 07. Typical
+    # acceptance rates are high enough that a batch is mostly wasted work, and
+    # the rotations are small QR decompositions where numpy beats JAX's dispatch
+    # overhead by a wide margin.
     for ntried in range(1, max_rot + 1):
         B = P @ haar_rotation(nvar, rng)
         if psi is None:
@@ -183,12 +186,6 @@ def sign_restricted_irf(
     psi_fixed = None if posterior else model.wold(horizon)
 
     accepted, attempted = [], 0
-    for _ in range(ndraws):
-        if posterior:
-            drawn = draw_posterior(model, rng)
-            psi = drawn.wold(horizon)
-        else:
-            drawn, psi = model, psi_fixed
     sign_ok = 0
     for _ in range(ndraws):
         if posterior:
