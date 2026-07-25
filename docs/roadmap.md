@@ -36,7 +36,7 @@ element-by-element across RNG streams. Validate the deterministic core (the
 rotation-to-IRF map given a fixed `Q`, and that accepted draws satisfy the sign
 pattern), plus a loose statistical comparison of median IRFs.
 
-## 03 — Historical decompositions
+## 03 — Historical decompositions ✅
 
 Port `compute_HD.m`. Needs the structural shock series and the initial-condition
 handling, which the upstream code splits into deterministic, initial-condition,

@@ -200,3 +200,9 @@ class VARmodel:
                 val += d @ X_extra[t]
             out[p + t] = val
         return out
+
+    def hd(self, ident: str = "chol", **kwargs):
+        """Historical decomposition; see :func:`pyvartoolbox.hd.compute_hd`."""
+        from .hd import compute_hd
+
+        return compute_hd(self, ident, **kwargs)

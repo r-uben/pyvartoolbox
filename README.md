@@ -45,7 +45,7 @@ Working today:
 | External instruments (proxy SVAR) | ✅ |
 | Sign restrictions / narrative sign restrictions | ⬜ planned |
 | External instruments combined with sign restrictions | ⬜ planned |
-| Historical decompositions | ⬜ planned |
+| Historical decompositions | ✅ |
 | Local projections (OLS and IV, Newey–West) | ⬜ planned |
 | JAX backend for resampling | ⬜ planned |
 
@@ -143,3 +143,16 @@ irf = m.irf(horizon=48, ident="iv", iv=z)   # irf[:, :, 0] is the identified sho
 
 Only shock 0 is identified; the remaining columns are returned as zeros rather
 than as the arbitrary numerical completion used internally to keep `B` invertible.
+
+## Historical decomposition
+
+```python
+d = m.hd(ident="chol")
+d.shock          # (nobs, nvar, nshock) contribution of each shock
+d.init           # initial-condition contribution
+d.deterministic  # constant + trend
+d.check(m.y)     # True: the components reconstruct the data
+```
+
+The first `nlags` rows are `NaN` — they are the presample and have no
+decomposition.

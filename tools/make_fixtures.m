@@ -72,6 +72,17 @@ for c = 1:numel(cases)
     dump(reshape(VAR.VD, vs, vv * vsh), p('VD'));
     dump([vs vv vsh], p('VDshape'));
 
+    % Historical decomposition. compute_HD needs an invertible B, so use the
+    % internal completion rather than the zeroed VAR.B stored for partial schemes.
+    [Bfull, ~] = recover_B(VAR, VARopt);
+    HD = compute_HD(VAR, Bfull);
+    [hs, hv, hsh] = size(HD.shock);
+    dump(reshape(HD.shock, hs, hv * hsh), p('HDshock'));
+    dump([hs hv hsh], p('HDshockshape'));
+    dump(HD.init,  p('HDinit'));
+    dump(HD.const, p('HDconst'));
+    dump(HD.endo,  p('HDendo'));
+
     fprintf('%s: nobs=%d nvar=%d IR=[%d %d %d] VD=[%d %d %d]\n', ...
             cs.name, size(X,1), size(X,2), ns, nv, nsh, vs, vv, vsh);
 end
