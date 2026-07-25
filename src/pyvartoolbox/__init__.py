@@ -13,6 +13,7 @@ from ._lag import DET_CONST, DET_NONE, DET_TREND, DET_TREND2, make_lags, make_xy
 from .bootstrap import BootstrapIRF, bootstrap_irf
 from .hd import HistoricalDecomposition, compute_hd
 from .ident import PARTIAL, SCHEMES, impact_matrix, proxy_iv
+from .lp import LocalProjection, local_projection, newey_west_se
 from .model import VARmodel
 from .sign import SignRestrictedIRF, sign_restricted_irf
 
@@ -22,6 +23,9 @@ __all__ = [
     "VARmodel",
     "bootstrap_irf",
     "BootstrapIRF",
+    "local_projection",
+    "LocalProjection",
+    "newey_west_se",
     "sign_restricted_irf",
     "SignRestrictedIRF",
     "compute_hd",

@@ -82,3 +82,24 @@ solvers match the reference to better than 1e-11.
 
 The package keeps `lstsq`. Matching a less accurate reference bit-for-bit is not
 worth losing accuracy on every other design.
+
+## MATLAB toolbox dependencies
+
+`LPmodel.m` calls `zscore` and `norminv`, both from the Statistics and Machine
+Learning Toolbox. Without that licence local projections cannot run at all, so
+`tools/shims/` supplies exact standard definitions (`norminv` via base MATLAB's
+`erfinv`, `zscore` as `(x-mean)/std(x,0)`) that `make_fixtures.m` puts on the
+path. With the toolbox licensed, drop the `addpath` line — the fixtures are
+identical either way, which is why the shims use exact identities rather than
+approximations.
+
+Noted while porting: `LPmodel.m` passes t-statistics to `tdis_prb` without the
+finite-value guard that `OLSmodel.m` has, so a specification that produces a
+non-finite t-statistic fails inside `betainc` rather than returning NaN.
+
+## Case: jt2025
+
+Reproduces `GO_JT2025.m` section 2 — Jorda and Taylor (2025), CPI response to a
+Romer-Romer shock, 1985q1-2007q4, 4 lags, constant, long-difference LHS, unit
+shock, 18 horizons, 95% bands. Impulse responses, Newey-West standard errors,
+and both bands agree to 1e-9.

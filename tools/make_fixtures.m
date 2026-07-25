@@ -9,6 +9,7 @@ warning off all
 TB     = fullfile(fileparts(mfilename('fullpath')), 'VAR-Toolbox');
 OUTDIR = fullfile(fileparts(mfilename('fullpath')), 'fixtures');
 addpath(genpath(TB));
+addpath(fullfile(fileparts(mfilename('fullpath')), 'shims'));  % see tools/shims/README.md
 if ~exist(OUTDIR, 'dir'); mkdir(OUTDIR); end
 
 % 'vars' selects endogenous columns by mnemonic ({} = all columns, in file
@@ -86,6 +87,43 @@ for c = 1:numel(cases)
     fprintf('%s: nobs=%d nvar=%d IR=[%d %d %d] VD=[%d %d %d]\n', ...
             cs.name, size(X,1), size(X,2), ns, nv, nsh, vs, vv, vsh);
 end
+
+%% LOCAL PROJECTIONS — Jorda and Taylor (2025), OLS branch
+% Separate from the VAR loop because LPmodel has a different call signature.
+% Mirrors GO_JT2025.m section 2 exactly: 1985q1-2007q4, lcpi scaled to percent,
+% long-difference LHS, unit shock.
+raw_lp = readcell(fullfile(TB, 'Replic/JT2025/JT2025_Data.xlsx'), 'Sheet', 'Ex5');
+mn_lp  = raw_lp(2, 2:end);
+dts    = raw_lp(3:end, 1);
+d_lp   = cellfun(@double, raw_lp(3:end, 2:end));
+
+i0 = find(strcmp(dts, '1985q1'));
+i1 = find(strcmp(dts, '2007q4'));
+col = @(name) d_lp(i0:i1, strcmp(mn_lp, name));
+
+ENDO  = 100 * col('lcpi');
+TREAT = col('rr_shock');
+CTRL  = [col('dlrgdp') col('dlcpi') col('dstir')];
+
+LPopt          = LPoption;
+LPopt.nsteps   = 18;
+LPopt.IV       = [];
+LPopt.longdiff = 1;
+LPopt.impact   = 1;
+LPopt.pctg     = 95;
+LP = LPmodel(ENDO, TREAT, CTRL, 4, 1, LPopt);
+
+q = @(suffix) fullfile(OUTDIR, ['jt2025_' suffix '.csv']);
+dump([ENDO TREAT CTRL], q('data'));
+dump(LP.IR,  q('IR'));
+dump(LP.INF, q('INF'));
+dump(LP.SUP, q('SUP'));
+nw = zeros(LPopt.nsteps, 1);
+for hh = 1:LPopt.nsteps
+    nw(hh) = LP.(['h' num2str(hh)]).bstd_NW(1);
+end
+dump(nw, q('seNW'));
+fprintf('jt2025: nobs=%d H=%d\n', size(ENDO,1), LPopt.nsteps);
 
 disp('done');
 

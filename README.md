@@ -47,7 +47,8 @@ Working today:
 | Narrative sign restrictions | ⬜ planned |
 | External instruments combined with sign restrictions | ⬜ planned |
 | Historical decompositions | ✅ |
-| Local projections (OLS and IV, Newey–West) | ⬜ planned |
+| Local projections (OLS, Newey–West, long-difference) | ✅ |
+| LP-IV (instrumented local projections) | ⬜ planned |
 | JAX backend for resampling | ⬜ planned |
 
 ## Validation
@@ -178,3 +179,18 @@ the *identified set* at the estimated coefficients — identification uncertaint
 only. They do not include parameter uncertainty, so they are not posterior
 credible bands. Combining the two requires drawing coefficients as well, which
 is not yet implemented.
+
+## Local projections
+
+```python
+lp = vt.local_projection(
+    endo=y, treat=shock, ctrl=controls,
+    nlags=4, horizon=17, long_diff=True, unit_shock=True,
+)
+lp.ir, lp.se, lp.lower, lp.upper
+```
+
+Univariate by design — one outcome at a time. Lags of the outcome are **not**
+added automatically; include it in `ctrl` if you want to control for them, which
+is the usual specification. Standard errors are Newey-West with bandwidth equal
+to the horizon, since the horizon-`h` projection residual is MA(`h`).
