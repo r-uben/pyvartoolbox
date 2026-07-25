@@ -30,7 +30,7 @@ the de-facto reference for several of them — but only in MATLAB.
 This package ports that functionality to numpy, with an optional JAX backend for
 the parts that are genuinely expensive.
 
-## Status: alpha
+## Status: beta
 
 Working today:
 

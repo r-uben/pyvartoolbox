@@ -1,6 +1,6 @@
 [project]
 name = "pyvartoolbox"
-version = "0.1.0"
+version = "0.2.0"
 description = "VAR and local-projection analysis in Python — a port of the MATLAB VAR Toolbox"
 authors = [
     {name = "Ruben Fernandez-Fuertes", email = "fernandezfuertesruben@gmail.com"}
@@ -11,7 +11,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 keywords = ["var", "svar", "econometrics", "impulse-response", "local-projections", "macroeconomics"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
