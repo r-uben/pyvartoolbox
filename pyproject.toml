@@ -1,6 +1,6 @@
 [project]
 name = "pyvartoolbox"
-version = "0.2.0"
+version = "0.3.0"
 description = "VAR and local-projection analysis in Python — a port of the MATLAB VAR Toolbox"
 authors = [
     {name = "Ruben Fernandez-Fuertes", email = "fernandezfuertesruben@gmail.com"}
