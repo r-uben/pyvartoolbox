@@ -306,6 +306,15 @@ pyvartoolbox-replicate all --outdir figures
 Each is also importable — `from pyvartoolbox.replications import gertler_karadi_2015`
 — returning the fitted models and results rather than only figures.
 
+The generated output is committed under [`figures/`](figures) so the results are
+visible without running anything. Gertler and Karadi (2015), proxy SVAR:
+
+<img src="figures/gk2015_proxy_irf.png" alt="GK2015 proxy SVAR impulse responses" width="360">
+
+A contractionary monetary policy shock raises the one-year rate and the excess
+bond premium, and lowers CPI and industrial production — including the absence of
+the price puzzle that motivates the instrument in the first place.
+
 This is a **different** claim from the validation table above. Those tests check
 our numbers equal MATLAB's on identical specifications; these check the whole
 pipeline runs and reproduces each paper's qualitative finding (a contractionary
