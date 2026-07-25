@@ -11,17 +11,31 @@ OUTDIR = fullfile(fileparts(mfilename('fullpath')), 'fixtures');
 addpath(genpath(TB));
 if ~exist(OUTDIR, 'dir'); mkdir(OUTDIR); end
 
+% 'vars' selects endogenous columns by mnemonic ({} = all columns, in file
+% order). 'ivvars' selects instrument columns for ident='iv' ({} = none).
 cases = struct( ...
-    'name',   {'sw2001',                          'bq1989'}, ...
-    'file',   {'Replic/SW2001/SW2001_Data.xlsx',  'Replic/BQ1989/BQ1989_Data.xlsx'}, ...
-    'nlags',  {4,                                 8}, ...
-    'ident',  {'short',                           'long'}, ...
-    'nsteps', {24,                                40});
+    'name',   {'sw2001',                          'bq1989',                          'gk2015'}, ...
+    'file',   {'Replic/SW2001/SW2001_Data.xlsx',  'Replic/BQ1989/BQ1989_Data.xlsx',  'Replic/GK2015/GK2015_Data.xlsx'}, ...
+    'nlags',  {4,                                 8,                                 12}, ...
+    'ident',  {'short',                           'long',                            'iv'}, ...
+    'nsteps', {24,                                40,                                48}, ...
+    'vars',   {{},                                {},                                {'gs1','logcpi','logip','ebp'}}, ...
+    'ivvars', {{},                                {},                                {'ff4_tc'}});
 
 for c = 1:numel(cases)
     cs = cases(c);
     raw  = readcell(fullfile(TB, cs.file), 'Sheet', 'Sheet1');
-    X    = cellfun(@double, raw(3:end, 2:end));
+    mnem = raw(2, 2:end);
+    full = cellfun(@double, raw(3:end, 2:end));
+
+    if isempty(cs.vars)
+        X = full;
+    else
+        X = zeros(size(full,1), numel(cs.vars));
+        for ii = 1:numel(cs.vars)
+            X(:,ii) = full(:, strcmp(mnem, cs.vars{ii}));
+        end
+    end
 
     VARopt           = VARoption;
     VARopt.ident     = cs.ident;
@@ -30,10 +44,19 @@ for c = 1:numel(cases)
     VARopt.impact    = 0;      % one-standard-deviation shocks
     VARopt.recurs    = 'wold';
 
+    if ~isempty(cs.ivvars)
+        IV = zeros(size(full,1), numel(cs.ivvars));
+        for ii = 1:numel(cs.ivvars)
+            IV(:,ii) = full(:, strcmp(mnem, cs.ivvars{ii}));
+        end
+        VARopt.IV = IV;
+    end
+
     VAR = VARmodel(X, cs.nlags, 1, VARopt);
 
     p = @(suffix) fullfile(OUTDIR, [cs.name '_' suffix '.csv']);
     dump(X, p('data'));
+    if ~isempty(cs.ivvars); dump(VARopt.IV, p('iv')); end
     dump(VAR.sigma, p('sigma'));
     dump(VAR.B, p('B'));
     dump(VAR.resid, p('resid'));

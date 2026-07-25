@@ -9,7 +9,7 @@ OLS estimation, deterministic and exogenous terms, companion form, stability,
 Wold representation, Cholesky and long-run identification, IRF, VD, residual and
 wild bootstrap bands.
 
-## 02 — Replication validation (partly done)
+## 02 — Replication validation (ongoing)
 
 The upstream `Replic/` folder ships six replications. Matching them numerically
 is the entire credibility claim of this port.
@@ -26,7 +26,7 @@ Done:
 Each remaining replication is validated as part of the ticket that implements
 its scheme, by adding a case to `make_fixtures.m`:
 
-- Gertler and Karadi (2015) → ticket 04
+- Gertler and Karadi (2015) → ticket 04 ✅
 - Uhlig (2005) → ticket 05
 - Antolín-Díaz and Rubio-Ramírez (2018) → ticket 06
 - Jordà and Taylor (2025) → ticket 08
@@ -42,7 +42,7 @@ Port `compute_HD.m`. Needs the structural shock series and the initial-condition
 handling, which the upstream code splits into deterministic, initial-condition,
 and shock contributions.
 
-## 04 — External instruments (proxy SVAR)
+## 04 — External instruments (proxy SVAR) ✅
 
 Port `recover_B.m`'s IV branch. This plus 06 is the main gap versus
 `statsmodels` and the strongest reason for the package to exist. Ordering it

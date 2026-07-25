@@ -137,28 +137,40 @@ class VARmodel:
                 psi[h] += A[j - 1] @ psi[h - j]
         return psi
 
-    def irf(self, horizon: int = 40, ident: str = "chol") -> np.ndarray:
+    def irf(self, horizon: int = 40, ident: str = "chol", **kwargs) -> np.ndarray:
         """Structural impulse responses, ``(horizon + 1, nvar, nshock)``.
 
         ``irf[h, i, j]`` is the response of variable ``i`` at horizon ``h`` to a
         one-standard-deviation structural shock ``j``. See :mod:`pyvartoolbox.ident`
-        for the available ``ident`` schemes.
+        for the available ``ident`` schemes and their extra arguments.
+
+        Under a partially identifying scheme such as ``ident="iv"``, only shock 0
+        is identified; the remaining columns are returned as zeros rather than as
+        the arbitrary numerical completion used internally.
         """
-        from .ident import impact_matrix
+        from .ident import PARTIAL, impact_matrix
 
-        B0inv = impact_matrix(self, ident)
-        return self.wold(horizon) @ B0inv
+        out = self.wold(horizon) @ impact_matrix(self, ident, **kwargs)
+        if ident in PARTIAL:
+            out[:, :, 1:] = 0.0
+        return out
 
-    def vd(self, horizon: int = 40, ident: str = "chol") -> np.ndarray:
+    def vd(self, horizon: int = 40, ident: str = "chol", **kwargs) -> np.ndarray:
         """Forecast error variance decomposition, ``(horizon + 1, nvar, nshock)``.
 
-        Entries are shares in ``[0, 1]`` summing to one across shocks for each
-        variable and horizon.
+        Entries are shares in ``[0, 1]``. They sum to one across shocks only
+        under a fully identifying scheme; under ``ident="iv"`` the single
+        identified column gives the share attributable to that shock alone.
         """
-        theta = self.irf(horizon, ident)
+        from .ident import PARTIAL, impact_matrix
+
+        theta = self.wold(horizon) @ impact_matrix(self, ident, **kwargs)
         contrib = np.cumsum(theta**2, axis=0)
         total = contrib.sum(axis=2, keepdims=True)
-        return contrib / total
+        out = contrib / total
+        if ident in PARTIAL:
+            out[:, :, 1:] = 0.0
+        return out
 
     def simulate(
         self, resid: np.ndarray, y0: np.ndarray, X_extra: np.ndarray | None = None

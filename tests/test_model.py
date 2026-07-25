@@ -142,10 +142,74 @@ class TestIdentification:
 
     def test_planned_scheme_raises_not_implemented(self, y_small):
         m = VARmodel(y_small, nlags=2)
-        with pytest.raises(NotImplementedError, match="proxy SVAR"):
-            m.irf(horizon=5, ident="iv")
+        with pytest.raises(NotImplementedError, match="sign restrictions"):
+            m.irf(horizon=5, ident="sign")
 
     def test_unknown_scheme_raises_value_error(self, y_small):
         m = VARmodel(y_small, nlags=2)
         with pytest.raises(ValueError, match="unknown identification"):
             m.irf(horizon=5, ident="nonsense")
+
+
+class TestProxyIV:
+    """Behaviour of the external-instrument scheme that the GK2015 fixture in
+    test_reference.py does not exercise."""
+
+    @pytest.fixture
+    def setup(self, y_small):
+        rng = np.random.default_rng(0)
+        m = VARmodel(y_small, nlags=2)
+        # Instrument correlated with the first structural shock, aligned on the
+        # full sample with a leading gap.
+        z = np.full(y_small.shape[0], np.nan)
+        z[10:] = m.resid[8:, 0] + 0.5 * rng.standard_normal(len(m.resid) - 8)
+        return m, z
+
+    def test_identifies_only_the_first_shock(self, setup):
+        m, z = setup
+        irf = m.irf(horizon=10, ident="iv", iv=z)
+        assert np.abs(irf[:, :, 0]).max() > 0
+        np.testing.assert_allclose(irf[:, :, 1:], 0.0)
+
+    def test_completion_is_invertible_and_preserves_the_iv_column(self, setup):
+        """The completion exists only so B is invertible for the HD backout.
+
+        Note what it is *not*: a factorisation of sigma. The orthonormal
+        completion satisfies B @ B.T == sigma, but the identified column is then
+        restored exactly on top of it, which breaks that identity unless the IV
+        impact happens to have unit norm in the Cholesky basis. Upstream makes
+        the same trade deliberately — exact shock-1 IRFs are worth more than a
+        tidy covariance identity, because the other columns are meaningless
+        anyway."""
+        from pyvartoolbox.ident import impact_matrix
+
+        m, z = setup
+        B = impact_matrix(m, "iv", iv=z)
+        assert np.linalg.matrix_rank(B) == m.nvar
+        assert np.isfinite(np.linalg.inv(B)).all()
+        # Columns 1: remain a valid orthonormal completion in the Cholesky basis.
+        P = np.linalg.cholesky(m.sigma)
+        Qtail = np.linalg.solve(P, B[:, 1:])
+        np.testing.assert_allclose(Qtail.T @ Qtail, np.eye(m.nvar - 1), atol=1e-10)
+
+    def test_vd_shares_are_bounded(self, setup):
+        m, z = setup
+        vd = m.vd(horizon=10, ident="iv", iv=z)
+        assert 0.0 <= vd[:, :, 0].min() and vd[:, :, 0].max() <= 1.0
+
+    def test_misaligned_instrument_rejected(self, setup):
+        m, z = setup
+        with pytest.raises(ValueError, match="aligned on the full sample"):
+            m.irf(ident="iv", iv=z[:-5])
+
+    def test_interior_gap_rejected(self, setup):
+        m, z = setup
+        z = z.copy()
+        z[50] = np.nan
+        with pytest.raises(ValueError, match="interior missing values"):
+            m.irf(ident="iv", iv=z)
+
+    def test_no_overlap_rejected(self, setup):
+        m, z = setup
+        with pytest.raises(ValueError, match="no overlapping sample"):
+            m.irf(ident="iv", iv=np.full_like(z, np.nan))

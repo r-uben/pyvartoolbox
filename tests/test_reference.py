@@ -35,8 +35,10 @@ from pyvartoolbox import VARmodel
 FIXTURES = Path(__file__).parent / "fixtures"
 
 CASES = {
-    "sw2001": {"nlags": 4, "ident": "chol"},
-    "bq1989": {"nlags": 8, "ident": "longrun"},
+    "sw2001": {"nlags": 4, "ident": "chol", "atol": 1e-10},
+    "bq1989": {"nlags": 8, "ident": "longrun", "atol": 1e-10},
+    # Ill-conditioned design; see test_conditioning.py for why 1e-7 is the floor.
+    "gk2015": {"nlags": 12, "ident": "iv", "atol": 1e-7},
 }
 
 
@@ -59,7 +61,10 @@ def case(request):
     spec = CASES[name]
     y = _load(name, "data")
     model = VARmodel(y, nlags=spec["nlags"], det=1)
-    return name, spec, model
+    kwargs = {}
+    if spec["ident"] == "iv":
+        kwargs["iv"] = _load(name, "iv")
+    return name, spec, model, kwargs
 
 
 class TestAgainstMatlab:
@@ -67,40 +72,52 @@ class TestAgainstMatlab:
     mismatch means a numerical disagreement rather than a reshaping artefact."""
 
     def test_residual_covariance(self, case):
-        name, _, m = case
-        np.testing.assert_allclose(m.sigma, _load(name, "sigma"), rtol=0, atol=1e-12)
-
-    def test_residuals(self, case):
-        name, _, m = case
-        np.testing.assert_allclose(m.resid, _load(name, "resid"), rtol=0, atol=1e-10)
-
-    def test_impact_matrix(self, case):
-        name, spec, m = case
-        from pyvartoolbox.ident import impact_matrix
-
+        name, spec, m, _kw = case
         np.testing.assert_allclose(
-            impact_matrix(m, spec["ident"]), _load(name, "B"), rtol=0, atol=1e-12
+            m.sigma, _load(name, "sigma"), rtol=0, atol=spec["atol"]
         )
 
+    def test_residuals(self, case):
+        name, spec, m, _kw = case
+        np.testing.assert_allclose(
+            m.resid, _load(name, "resid"), rtol=0, atol=spec["atol"]
+        )
+
+    def test_impact_matrix(self, case):
+        name, spec, m, kw = case
+        from pyvartoolbox.ident import PARTIAL, impact_matrix
+
+        got = impact_matrix(m, spec["ident"], **kw)
+        ref = _load(name, "B")
+        if spec["ident"] in PARTIAL:
+            # Upstream zeroes the unidentified columns in the stored B; we keep
+            # the numerical completion, which HD needs. Only column 0 is
+            # economically meaningful, so only column 0 is comparable.
+            got, ref = got[:, :1], ref[:, :1]
+            assert np.allclose(_load(name, "B")[:, 1:], 0.0)
+        np.testing.assert_allclose(got, ref, rtol=0, atol=spec["atol"])
+
     def test_impulse_responses(self, case):
-        name, spec, m = case
+        name, spec, m, kw = case
         ref = _load3d(name, "IR")
         nsteps = ref.shape[0]
-        got = m.irf(horizon=nsteps - 1, ident=spec["ident"])
-        np.testing.assert_allclose(got, ref, rtol=0, atol=1e-10)
+        got = m.irf(horizon=nsteps - 1, ident=spec["ident"], **kw)
+        np.testing.assert_allclose(got, ref, rtol=0, atol=spec["atol"])
 
     def test_variance_decomposition(self, case):
-        name, spec, m = case
+        name, spec, m, kw = case
         # Upstream is percent and (h, shock, variable); ours is share and
         # (h, variable, shock).
         ref = _load3d(name, "VD").transpose(0, 2, 1)
         nsteps = ref.shape[0]
-        got = m.vd(horizon=nsteps - 1, ident=spec["ident"]) * 100.0
-        np.testing.assert_allclose(got, ref, rtol=0, atol=1e-9)
+        got = m.vd(horizon=nsteps - 1, ident=spec["ident"], **kw) * 100.0
+        np.testing.assert_allclose(got, ref, rtol=0, atol=spec["atol"] * 100)
 
 
-def test_fixtures_cover_both_identification_schemes():
+def test_fixtures_cover_every_implemented_scheme():
     """Guard against a fixture silently disappearing and the suite still passing."""
-    assert {spec["ident"] for spec in CASES.values()} == {"chol", "longrun"}
+    from pyvartoolbox.ident import SCHEMES
+
+    assert {spec["ident"] for spec in CASES.values()} == set(SCHEMES)
     for name in CASES:
         assert (FIXTURES / f"{name}_IR.csv").exists()

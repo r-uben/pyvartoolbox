@@ -11,7 +11,7 @@ original toolbox in research.
 
 from ._lag import DET_CONST, DET_NONE, DET_TREND, DET_TREND2, make_lags, make_xy
 from .bootstrap import BootstrapIRF, bootstrap_irf
-from .ident import SCHEMES, impact_matrix
+from .ident import PARTIAL, SCHEMES, impact_matrix, proxy_iv
 from .model import VARmodel
 
 __version__ = "0.1.0"
@@ -21,7 +21,9 @@ __all__ = [
     "bootstrap_irf",
     "BootstrapIRF",
     "impact_matrix",
+    "proxy_iv",
     "SCHEMES",
+    "PARTIAL",
     "make_lags",
     "make_xy",
     "DET_NONE",

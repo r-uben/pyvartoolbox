@@ -58,6 +58,22 @@ Recorded here because each one looks like a bug the first time you hit it.
 
 | Quantity | Tolerance |
 | --- | --- |
-| `sigma`, impact matrix `B` | 1e-12 absolute |
-| residuals, IRFs | 1e-10 absolute |
-| variance decompositions | 1e-9 absolute (on the percent scale) |
+| `sigma`, impact matrix `B`, residuals, IRFs (sw2001, bq1989) | 1e-10 to 1e-12 absolute |
+| variance decompositions (sw2001, bq1989) | 1e-8 absolute (percent scale) |
+| everything for gk2015 | 1e-7 absolute — see the note below |
+
+## Tolerance note: GK2015
+
+The Gertler-Karadi case is asserted at 1e-7, not 1e-10. This is not slack for a
+suspected bug — `tests/test_conditioning.py` pins the cause.
+
+The design has 12 lags of monthly data and 49 regressors, giving `cond(X)` about
+4.7e4 and `cond(X'X)` about 2.2e9. Upstream solves via normal equations, which
+squares the conditioning; this package uses `lstsq`. Reproducing upstream's own
+solver in numpy moves materially closer to its answer (max residual gap 2.7e-9
+versus 1.0e-8 for QR), which is the evidence that the gap is solver-driven — a
+porting error would not respond to changing the solver. Neither matches exactly,
+because MATLAB's backslash uses its own factorisation and BLAS ordering.
+
+The package keeps `lstsq`. Matching a less accurate reference bit-for-bit is not
+worth losing accuracy on every other design.

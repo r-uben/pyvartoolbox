@@ -42,8 +42,9 @@ Working today:
 | Long-run zero restrictions (Blanchard–Quah) | ✅ |
 | Impulse responses and forecast error variance decomposition | ✅ |
 | Residual and wild bootstrap percentile bands | ✅ |
+| External instruments (proxy SVAR) | ✅ |
 | Sign restrictions / narrative sign restrictions | ⬜ planned |
-| External instruments (proxy SVAR), IV + sign | ⬜ planned |
+| External instruments combined with sign restrictions | ⬜ planned |
 | Historical decompositions | ⬜ planned |
 | Local projections (OLS and IV, Newey–West) | ⬜ planned |
 | JAX backend for resampling | ⬜ planned |
@@ -60,6 +61,7 @@ licence.
 | --- | --- | --- |
 | Stock and Watson (2001) | Cholesky | IRFs to 1e-10, `sigma` and impact matrix to 1e-12 |
 | Blanchard and Quah (1989) | long-run zero | IRFs to 1e-10, `sigma` and impact matrix to 1e-12 |
+| Gertler and Karadi (2015) | external instruments | IRFs and impact column to 1e-7 |
 
 Details, regeneration instructions, and the deliberate convention differences
 (VD scale and axis order, horizon counting, coefficient layout) are in
@@ -128,3 +130,16 @@ permissively licensed VAR implementation, use `statsmodels` instead.
 Cite the original toolbox and handbook:
 
 > Cesa-Bianchi, A. *VAR Toolbox*. https://github.com/ambropo/VAR-Toolbox
+
+## Proxy SVAR (external instruments)
+
+The instrument identifies the shock to the **first** variable in `y`, so
+ordering still matters even though the scheme is not recursive. Pass the
+instrument aligned on the full sample, with missing periods as `NaN`:
+
+```python
+irf = m.irf(horizon=48, ident="iv", iv=z)   # irf[:, :, 0] is the identified shock
+```
+
+Only shock 0 is identified; the remaining columns are returned as zeros rather
+than as the arbitrary numerical completion used internally to keep `B` invertible.
