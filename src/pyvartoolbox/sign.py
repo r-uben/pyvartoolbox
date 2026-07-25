@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .ident import _cholesky
+from .ident import _cholesky, proxy_iv
 from .posterior import draw_posterior
 
 
@@ -54,7 +54,17 @@ def haar_rotation(nvar: int, rng: np.random.Generator) -> np.ndarray:
     return q * np.sign(np.diag(r))
 
 
-def _match(candidate: np.ndarray, restrictions: np.ndarray) -> np.ndarray | None:
+def _complete_basis(q1: np.ndarray, nvar: int) -> np.ndarray:
+    """Orthonormal basis whose first column is ``q1`` (assumed unit norm)."""
+    Q, _ = np.linalg.qr(np.column_stack([q1, np.eye(nvar)]))
+    if Q[:, 0] @ q1 < 0:
+        Q[:, 0] = -Q[:, 0]
+    return Q
+
+
+def _match(
+    candidate: np.ndarray, restrictions: np.ndarray, start: int = 0
+) -> np.ndarray | None:
     """Greedily assign candidate columns to shocks, flipping signs as needed.
 
     ``candidate`` is ``(nvar, nvar)`` when restrictions apply on impact only, or
@@ -66,7 +76,9 @@ def _match(candidate: np.ndarray, restrictions: np.ndarray) -> np.ndarray | None
     covers the identified set.
     """
     nvar, nshock = restrictions.shape
-    available = list(range(nvar))
+    # Columns before `start` are already identified (by an instrument) and are
+    # held fixed rather than offered to the matcher.
+    available = list(range(start, nvar))
     order = np.empty(nshock, dtype=int)
     flip = np.ones(nshock)
 
@@ -97,6 +109,7 @@ def draw_rotation(
     rng: np.random.Generator,
     sr_hor: int = 1,
     max_rot: int = 500,
+    b_iv: np.ndarray | None = None,
 ) -> tuple[np.ndarray | None, int]:
     """Draw rotations until one satisfies ``restrictions``.
 
@@ -110,8 +123,12 @@ def draw_rotation(
             f"restrictions has {restrictions.shape[0]} rows but the VAR has "
             f"{nvar} variables"
         )
-    if restrictions.shape[1] > nvar:
-        raise ValueError("cannot restrict more shocks than there are variables")
+    start = 0 if b_iv is None else 1
+    if restrictions.shape[1] > nvar - start:
+        raise ValueError(
+            "cannot restrict more shocks than there are free columns "
+            f"({nvar - start} available, {restrictions.shape[1]} restricted)"
+        )
     if not np.isin(restrictions, (-1.0, 0.0, 1.0)).all():
         raise ValueError("restrictions must contain only -1, 0 and +1")
 
@@ -123,17 +140,34 @@ def draw_rotation(
     # acceptance rates are high enough that a batch is mostly wasted work, and
     # the rotations are small QR decompositions where numpy beats JAX's dispatch
     # overhead by a wide margin.
+    if b_iv is not None:
+        # Express the instrument-identified impact in the Cholesky basis and
+        # complete it to an orthonormal basis. Only the orthogonal complement is
+        # then rotated, so column 0 survives every draw unchanged.
+        q1 = np.linalg.solve(P, np.asarray(b_iv, dtype=float).ravel())
+        Q0 = _complete_basis(q1 / np.linalg.norm(q1), nvar)
+
     for ntried in range(1, max_rot + 1):
-        B = P @ haar_rotation(nvar, rng)
+        if b_iv is None:
+            B = P @ haar_rotation(nvar, rng)
+        else:
+            rot = np.eye(nvar)
+            rot[1:, 1:] = haar_rotation(nvar - 1, rng)
+            B = P @ Q0 @ rot
+            B[:, 0] = b_iv  # restore the IV impact exactly
+
         if psi is None:
             candidate = B
         else:
             # (nvar, nshock, nhor): every restricted horizon must comply.
             candidate = np.transpose(psi @ B, (1, 2, 0))
-        matched = _match(candidate, restrictions)
+        matched = _match(candidate, restrictions, start)
         if matched is not None:
             order, flip = matched
-            return B[:, order] * flip, ntried
+            # Column 0 stays the IV shock; restricted shocks follow it.
+            cols = np.concatenate([np.arange(start), order])
+            flips = np.concatenate([np.ones(start), flip])
+            return B[:, cols] * flips, ntried
     return None, max_rot
 
 
@@ -148,6 +182,7 @@ def sign_restricted_irf(
     seed: int | None = None,
     posterior: bool = True,
     narrative: list | None = None,
+    iv: np.ndarray | None = None,
 ) -> SignRestrictedIRF:
     """Impulse responses over the sign-identified set.
 
@@ -178,6 +213,12 @@ def sign_restricted_irf(
         discarded. The original paper instead reweights accepted draws by an
         importance weight. The two agree on the support of the posterior but not
         on its shape, so results here will not exactly reproduce the paper's.
+    iv : array (nobs,), optional
+        External instrument. Combines the two schemes as upstream's
+        ``ident="sign+iv"`` does: shock 0 is identified by the instrument and
+        held fixed across rotations, and the sign pattern identifies the
+        remaining shocks within its orthogonal complement. ``restrictions`` then
+        has at most ``nvar - 1`` columns, describing those remaining shocks.
     """
     if not 0.0 < ci < 1.0:
         raise ValueError(f"ci must be in (0, 1), got {ci}")
@@ -193,7 +234,12 @@ def sign_restricted_irf(
             psi = drawn.wold(horizon)
         else:
             drawn, psi = model, psi_fixed
-        B, ntried = draw_rotation(drawn, restrictions, rng, sr_hor, max_rot)
+        b_iv = None
+        if iv is not None:
+            b_iv = proxy_iv(drawn, iv)[:, 0]
+        B, ntried = draw_rotation(
+            drawn, restrictions, rng, sr_hor, max_rot, b_iv=b_iv
+        )
         attempted += ntried
         if B is None:
             continue

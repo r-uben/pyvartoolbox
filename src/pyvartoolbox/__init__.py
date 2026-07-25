@@ -24,7 +24,7 @@ from .sign import (
     sign_restricted_irf,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "VARmodel",

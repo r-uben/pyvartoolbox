@@ -1,7 +1,7 @@
 # STATUS — pyvartoolbox
 
 Last updated: 2026-07-25
-Stage: beta (v0.3.0) — every roadmap ticket closed, all six replications validated
+Stage: beta (v0.4.0) — feature-complete against upstream; all six replications validated
 Repo: https://github.com/r-uben/pyvartoolbox (public, GPL-3.0, CI green)
 
 ## Where things stand

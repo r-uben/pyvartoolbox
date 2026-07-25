@@ -46,7 +46,7 @@ Working today:
 | Sign restrictions (impact and multi-horizon) | ✅ |
 | Posterior draws (flat-prior Normal-inverse-Wishart) | ✅ |
 | Narrative sign restrictions (sign and dominance) | ✅ |
-| External instruments combined with sign restrictions | ⬜ planned |
+| External instruments combined with sign restrictions | ✅ |
 | Historical decompositions | ✅ |
 | Local projections (OLS, Newey–West, long-difference) | ✅ |
 | LP-IV (instrumented local projections) | ✅ |
@@ -271,3 +271,16 @@ vt.plot_hd(m.hd(), variable=0)
 Deliberately thin — every function returns the matplotlib `Figure` for
 restyling. The arrays have an obvious layout, so if you have a house style,
 plot them directly rather than fighting a wrapper.
+
+### Sign restrictions combined with an instrument
+
+Upstream's `ident="sign+iv"`. Shock 0 is identified by the instrument and held
+fixed across rotations; the sign pattern identifies the remaining shocks inside
+its orthogonal complement, so `restrictions` has at most `nvar - 1` columns:
+
+```python
+res = vt.sign_restricted_irf(m, R_for_other_shocks, iv=z, horizon=40)
+```
+
+Note that with `nvar = 2` the complement is one-dimensional, so there is no
+rotational freedom left at all and the remaining column is determined up to sign.

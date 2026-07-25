@@ -219,3 +219,100 @@ class TestNarrativeRestrictions:
                 seed=0,
                 narrative=[NarrativeSign(period=100000, shock=0, sign=1)],
             )
+
+
+class TestSignPlusIV:
+    """Upstream's ident='sign+iv': shock 0 comes from the instrument and is held
+    fixed, the sign pattern identifies shocks within its orthogonal complement."""
+
+    @pytest.fixture
+    def setup(self, y_small):
+        rng = np.random.default_rng(0)
+        m = VARmodel(y_small, nlags=2)
+        z = np.full(y_small.shape[0], np.nan)
+        z[10:] = m.resid[8:, 0] + 0.5 * rng.standard_normal(len(m.resid) - 8)
+        return m, z
+
+    def test_iv_column_is_identical_across_draws(self, setup):
+        """The whole point: the instrument pins column 0, so rotating must not
+        move it."""
+        from pyvartoolbox.ident import proxy_iv
+
+        m, z = setup
+        expected = proxy_iv(m, z)[:, 0]
+        rng = np.random.default_rng(1)
+        R = np.array([[1.0], [-1.0]])
+        for _ in range(15):
+            B, _ = draw_rotation(m, R, rng, b_iv=expected)
+            assert B is not None
+            np.testing.assert_allclose(B[:, 0], expected, atol=1e-12)
+
+    def test_remaining_column_satisfies_its_restriction(self, setup):
+        from pyvartoolbox.ident import proxy_iv
+
+        m, z = setup
+        b_iv = proxy_iv(m, z)[:, 0]
+        rng = np.random.default_rng(2)
+        R = np.array([[1.0], [-1.0]])
+        for _ in range(15):
+            B, _ = draw_rotation(m, R, rng, b_iv=b_iv)
+            assert B is not None
+            assert B[0, 1] >= -1e-12
+            assert B[1, 1] <= 1e-12
+
+    def test_rotation_stays_in_the_orthogonal_complement(self, setup):
+        """Columns 1: must remain orthonormal to column 0 in the Cholesky basis,
+        otherwise the completion has been corrupted."""
+        from pyvartoolbox.ident import proxy_iv
+
+        m, z = setup
+        b_iv = proxy_iv(m, z)[:, 0]
+        rng = np.random.default_rng(3)
+        B, _ = draw_rotation(m, np.array([[0.0], [0.0]]), rng, b_iv=b_iv)
+        P = np.linalg.cholesky(m.sigma)
+        Q = np.linalg.solve(P, B)
+        q0 = Q[:, 0] / np.linalg.norm(Q[:, 0])
+        assert abs(q0 @ Q[:, 1]) < 1e-10
+
+    def test_too_many_restricted_shocks_rejected(self, setup):
+        m, z = setup
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="free columns"):
+            draw_rotation(m, np.ones((2, 2)), rng, b_iv=np.ones(2))
+
+    def test_end_to_end_through_the_sampler(self, setup):
+        m, z = setup
+        res = sign_restricted_irf(
+            m,
+            np.array([[1.0], [-1.0]]),
+            horizon=6,
+            ndraws=40,
+            seed=0,
+            posterior=False,
+            iv=z,
+        )
+        assert res.naccepted > 0
+        # Column 0 is the IV shock and is identical in every accepted draw.
+        impacts = res.draws[:, 0, :, 0]
+        np.testing.assert_allclose(
+            impacts, np.broadcast_to(impacts[0], impacts.shape), atol=1e-10
+        )
+
+    def test_bivariate_case_has_no_rotational_freedom(self, setup):
+        """Worth stating explicitly, because it looks like a bug the first time
+        you hit it: with two variables and one column pinned by the instrument,
+        the orthogonal complement is one-dimensional. The remaining column is
+        then determined up to sign, so an infeasible sign pattern can never be
+        satisfied no matter how many rotations are drawn."""
+        from pyvartoolbox.ident import proxy_iv
+
+        m, z = setup
+        b_iv = proxy_iv(m, z)[:, 0]
+        rng = np.random.default_rng(4)
+        free = [
+            draw_rotation(m, np.zeros((2, 1)), rng, b_iv=b_iv)[0][:, 1]
+            for _ in range(10)
+        ]
+        # Identical up to sign across every draw.
+        for col in free[1:]:
+            assert np.allclose(col, free[0]) or np.allclose(col, -free[0])
