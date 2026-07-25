@@ -52,6 +52,7 @@ Working today:
 | LP-IV (instrumented local projections) | ⬜ planned |
 | JAX backend for the bootstrap | ✅ |
 | JAX backend for rotation sampling | ⬜ planned |
+| Plotting helpers (IRF grid, VD, HD) | ✅ |
 
 ## Validation
 
@@ -238,3 +239,20 @@ so they agree draw-for-draw to 1e-10 rather than merely in distribution — the
 test suite asserts exactly that. `jax_enable_x64` is forced at import: float32
 silently corrupts long-horizon responses because the companion recursion
 compounds the error.
+
+## Plotting
+
+```bash
+uv add "pyvartoolbox[plot]"
+```
+
+```python
+vt.plot_irf(bands.irf, bands.lower, bands.upper,
+            var_names=["output", "prices", "rate"])
+vt.plot_vd(m.vd(horizon=40))
+vt.plot_hd(m.hd(), variable=0)
+```
+
+Deliberately thin — every function returns the matplotlib `Figure` for
+restyling. The arrays have an obvious layout, so if you have a house style,
+plot them directly rather than fighting a wrapper.

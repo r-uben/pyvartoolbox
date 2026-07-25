@@ -86,7 +86,7 @@ under a fixed seed, and the JAX path is measurably faster at `nboot >= 1000`.
 Port `LPmodel.m`: OLS and IV local projections with Newey–West standard errors.
 Independent of 03–07; can be done in parallel.
 
-## 09 — Plotting
+## 09 — Plotting ✅
 
 Thin matplotlib helpers mirroring `VARirplot` / `VARhdplot` / `VARvdplot`.
 Optional dependency. Deliberately last: it is the most code for the least

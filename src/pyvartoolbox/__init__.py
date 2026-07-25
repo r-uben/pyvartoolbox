@@ -15,6 +15,7 @@ from .hd import HistoricalDecomposition, compute_hd
 from .ident import PARTIAL, SCHEMES, impact_matrix, proxy_iv
 from .lp import LocalProjection, local_projection, newey_west_se
 from .model import VARmodel
+from .plot import plot_hd, plot_irf, plot_vd
 from .posterior import draw_posterior, wishart
 from .sign import (
     NarrativeDominance,
@@ -29,6 +30,9 @@ __all__ = [
     "VARmodel",
     "bootstrap_irf",
     "BootstrapIRF",
+    "plot_irf",
+    "plot_vd",
+    "plot_hd",
     "draw_posterior",
     "wishart",
     "local_projection",
