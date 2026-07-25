@@ -45,17 +45,6 @@ class BootstrapIRF:
         return np.median(self.draws, axis=0)
 
 
-def _resample(
-    resid: np.ndarray, method: str, rng: np.random.Generator
-) -> np.ndarray:
-    neff = resid.shape[0]
-    if method == "resid":
-        return resid[rng.integers(0, neff, size=neff)]
-    if method == "wild":
-        return resid * rng.choice([-1.0, 1.0], size=(neff, 1))
-    raise ValueError(f"unknown bootstrap method {method!r}; expected one of {METHODS}")
-
-
 def bootstrap_irf(
     model: VARmodel,
     horizon: int = 40,
@@ -65,6 +54,7 @@ def bootstrap_irf(
     ci: float = 0.90,
     seed: int | None = None,
     drop_unstable: bool = True,
+    backend: str = "numpy",
 ) -> BootstrapIRF:
     """Percentile bootstrap bands around ``model.irf(horizon, ident)``.
 
@@ -93,29 +83,69 @@ def bootstrap_irf(
     if nboot < 2:
         raise ValueError(f"nboot must be >= 2, got {nboot}")
 
+    if backend not in ("numpy", "jax"):
+        raise ValueError(f"backend must be 'numpy' or 'jax', got {backend!r}")
+    if method not in METHODS:
+        raise ValueError(
+            f"unknown bootstrap method {method!r}; expected one of {METHODS}"
+        )
+
+    if backend == "jax":
+        # Checked before anything is computed, so a configuration error is not
+        # reported as whatever the point estimate happens to complain about.
+        from ._jax import JAX_SCHEMES
+
+        if ident not in JAX_SCHEMES:
+            raise ValueError(
+                f"the JAX backend supports {JAX_SCHEMES}, not {ident!r}; "
+                "use backend='numpy'"
+            )
+
     rng = np.random.default_rng(seed)
     point = model.irf(horizon, ident)
     y0 = model.y[: model.nlags]
+    neff = model.neff
 
-    draws = []
-    ndiscarded = 0
-    for _ in range(nboot):
-        y_star = model.simulate(_resample(model.resid, method, rng), y0)
-        boot = VARmodel(
-            y_star,
-            model.nlags,
-            det=model.det,
-            exog=model.exog,
-            dof_adjust=model.dof_adjust,
-        )
-        if drop_unstable and not boot.is_stable():
-            ndiscarded += 1
-            continue
-        try:
-            draws.append(boot.irf(horizon, ident))
-        except np.linalg.LinAlgError:
-            # A singular draw is uninformative, not fatal; count and move on.
-            ndiscarded += 1
+    # Draws are generated here for both backends, so the two are exactly
+    # comparable rather than merely distributionally similar.
+    if method == "resid":
+        indices = rng.integers(0, neff, size=(nboot, neff))
+        signs = None
+    else:
+        indices = None
+        signs = rng.choice([-1.0, 1.0], size=(nboot, neff))
+
+    if backend == "jax":
+        from ._jax import bootstrap_draws
+
+        irfs, eigs = bootstrap_draws(model, horizon, ident, indices, signs)
+        keep = np.isfinite(irfs).all(axis=(1, 2, 3))
+        if drop_unstable:
+            keep &= eigs < 1.0
+        draws = list(irfs[keep])
+        ndiscarded = int((~keep).sum())
+    else:
+        draws = []
+        ndiscarded = 0
+        for b in range(nboot):
+            u = model.resid[indices[b]] if indices is not None else (
+                model.resid * signs[b][:, None]
+            )
+            boot = VARmodel(
+                model.simulate(u, y0),
+                model.nlags,
+                det=model.det,
+                exog=model.exog,
+                dof_adjust=model.dof_adjust,
+            )
+            if drop_unstable and not boot.is_stable():
+                ndiscarded += 1
+                continue
+            try:
+                draws.append(boot.irf(horizon, ident))
+            except np.linalg.LinAlgError:
+                # A singular draw is uninformative, not fatal.
+                ndiscarded += 1
 
     if len(draws) < 2:
         raise RuntimeError(

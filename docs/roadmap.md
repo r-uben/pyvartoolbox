@@ -64,7 +64,7 @@ is a backend swap rather than a rewrite.
 Antolín-Díaz and Rubio-Ramírez (2018): adds importance weighting over accepted
 draws. Depends on 05.
 
-## 07 — JAX backend
+## 07 — JAX backend ✅ (bootstrap; rotation sampler outstanding)
 
 Only for the resampling layers, behind the same public API:
 

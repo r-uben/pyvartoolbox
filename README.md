@@ -50,7 +50,8 @@ Working today:
 | Historical decompositions | ✅ |
 | Local projections (OLS, Newey–West, long-difference) | ✅ |
 | LP-IV (instrumented local projections) | ⬜ planned |
-| JAX backend for resampling | ⬜ planned |
+| JAX backend for the bootstrap | ✅ |
+| JAX backend for rotation sampling | ⬜ planned |
 
 ## Validation
 
@@ -114,10 +115,11 @@ cum = irf.cumsum(axis=0)   # cum[-1, 0, 1] == 0 by construction
 ## Design notes
 
 - **numpy is the reference implementation.** The optional JAX backend targets
-  only the embarrassingly parallel layers — bootstrap replications and
-  sign-restriction rejection sampling — where it buys one to two orders of
-  magnitude. Estimation itself is a single small least-squares solve and gains
-  nothing.
+  only the embarrassingly parallel layer: bootstrap replications. Measured at
+  8x on a 4-variable, 4-lag, 400-observation VAR with `nboot=2000` (4.10s to
+  0.50s, CPU) — a real win, but note this is well short of the order-of-magnitude
+  gains JAX gets on larger problems, because each replication here is a small
+  least-squares solve. Estimation itself gains nothing and is not accelerated.
 - **Float64 throughout.** VAR companion matrices and long-run restrictions are
   ill-conditioned; the JAX backend will require `jax_enable_x64`.
 - Estimation uses `lstsq` rather than normal equations, because VAR regressors
@@ -217,3 +219,22 @@ Upstream — and therefore this port — applies narrative restrictions as a
 and Rubio-Ramírez (2018) instead reweight accepted draws by an importance
 weight. The two agree on the support of the posterior but not its shape, so
 results here will not exactly reproduce the paper.
+
+## JAX backend
+
+```bash
+uv add "pyvartoolbox[jax]"
+```
+
+```python
+bands = vt.bootstrap_irf(m, horizon=40, nboot=5000, seed=0, backend="jax")
+```
+
+Supports `chol` and `longrun`; `iv` falls back to numpy by raising, since its
+instrument alignment is not worth expressing as a traced computation.
+
+The two backends **share their resample draws**, which are generated in numpy,
+so they agree draw-for-draw to 1e-10 rather than merely in distribution — the
+test suite asserts exactly that. `jax_enable_x64` is forced at import: float32
+silently corrupts long-horizon responses because the companion recursion
+compounds the error.
