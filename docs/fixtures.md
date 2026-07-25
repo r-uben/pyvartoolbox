@@ -69,11 +69,16 @@ suspected bug — `tests/test_conditioning.py` pins the cause.
 
 The design has 12 lags of monthly data and 49 regressors, giving `cond(X)` about
 4.7e4 and `cond(X'X)` about 2.2e9. Upstream solves via normal equations, which
-squares the conditioning; this package uses `lstsq`. Reproducing upstream's own
-solver in numpy moves materially closer to its answer (max residual gap 2.7e-9
-versus 1.0e-8 for QR), which is the evidence that the gap is solver-driven — a
-porting error would not respond to changing the solver. Neither matches exactly,
-because MATLAB's backslash uses its own factorisation and BLAS ordering.
+forms `X'X` and so works with the squared conditioning; this package uses
+`lstsq`. That costs roughly five digits and puts agreement between any two
+implementations at order 1e-8 rather than 1e-12.
+
+At that level the difference is BLAS-ordering noise. It is platform-dependent:
+on macOS/Accelerate, reproducing upstream's normal-equations solver in numpy
+lands closer to MATLAB than QR does; on Linux/OpenBLAS the ordering reverses.
+The evidence that this is conditioning rather than a porting error is the
+contrast with Stock-Watson, where 4 lags and benign conditioning let both
+solvers match the reference to better than 1e-11.
 
 The package keeps `lstsq`. Matching a less accurate reference bit-for-bit is not
 worth losing accuracy on every other design.
