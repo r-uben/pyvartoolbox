@@ -9,7 +9,7 @@ OLS estimation, deterministic and exogenous terms, companion form, stability,
 Wold representation, Cholesky and long-run identification, IRF, VD, residual and
 wild bootstrap bands.
 
-## 02 — Replication validation (ongoing)
+## 02 — Replication validation ✅ (all six)
 
 The upstream `Replic/` folder ships six replications. Matching them numerically
 is the entire credibility claim of this port.
@@ -27,9 +27,9 @@ Each remaining replication is validated as part of the ticket that implements
 its scheme, by adding a case to `make_fixtures.m`:
 
 - Gertler and Karadi (2015) → ticket 04 ✅
-- Uhlig (2005) → ticket 05
-- Antolín-Díaz and Rubio-Ramírez (2018) → ticket 06
-- Jordà and Taylor (2025) → ticket 08
+- Uhlig (2005) → ticket 05 ✅ (accepted-rotation check)
+- Antolín-Díaz and Rubio-Ramírez (2018) → ticket 06 ✅ (accepted-rotation check)
+- Jordà and Taylor (2025) → ticket 08 ✅ (OLS and IV)
 
 Note that 05 and 06 are rejection samplers, so they cannot be matched
 element-by-element across RNG streams. Validate the deterministic core (the

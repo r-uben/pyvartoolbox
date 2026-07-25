@@ -67,15 +67,31 @@ licence.
 | Stock and Watson (2001) | Cholesky | IRFs to 1e-10, `sigma` and impact matrix to 1e-12 |
 | Blanchard and Quah (1989) | long-run zero | IRFs to 1e-10, `sigma` and impact matrix to 1e-12 |
 | Gertler and Karadi (2015) | external instruments | IRFs and impact column to 1e-7 |
+| Jordà and Taylor (2025) | local projections, OLS | IRFs, Newey–West SEs and bands to 1e-9 |
+| Jordà and Taylor (2025) | local projections, IV | IRFs, SEs, bands and first-stage F to 1e-8 |
 
 Details, regeneration instructions, and the deliberate convention differences
 (VD scale and axis order, horizon counting, coefficient layout) are in
 [`docs/fixtures.md`](docs/fixtures.md).
 
-Bootstrap bands are *not* fixture-validated: they depend on MATLAB's RNG stream,
-which numpy cannot reproduce, so they are tested through their statistical
-properties instead. The remaining schemes in
-[`docs/roadmap.md`](docs/roadmap.md) are unimplemented, not unvalidated.
+### The two set-identified replications, validated differently
+
+Uhlig (2005) and Antolín-Díaz–Rubio-Ramírez (2018) are rejection samplers. Their
+acceptance sequence depends on an RNG stream numpy cannot reproduce, so
+draw-for-draw agreement is not achievable and is not claimed.
+
+What is checked instead: the fixtures hold the impact matrices MATLAB actually
+**accepted**, and the tests verify that our acceptance predicate accepts every
+one of them, that our impulse responses computed from those same matrices
+reproduce MATLAB's to 1e-8, and — for ADRR — that both narrative constraints
+hold on every accepted draw. That validates everything except the random number
+generator, but it is **weaker** than the deterministic results above and should
+not be read as equivalent.
+
+Bootstrap bands and posterior draws are likewise not fixture-validated, for the
+same reason; they are tested through their distributional properties (Haar
+uniformity, the Wishart moment formulas, the Kronecker covariance of the
+coefficient draw).
 
 ## Install
 

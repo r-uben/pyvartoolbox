@@ -103,3 +103,20 @@ Reproduces `GO_JT2025.m` section 2 — Jorda and Taylor (2025), CPI response to 
 Romer-Romer shock, 1985q1-2007q4, 4 lags, constant, long-difference LHS, unit
 shock, 18 horizons, 95% bands. Impulse responses, Newey-West standard errors,
 and both bands agree to 1e-9.
+
+## Cases: uhlig2005 and adrr2018
+
+Both are rejection samplers, so they are validated differently from the rest —
+see the README section "The two set-identified replications, validated
+differently".
+
+Generated with `VARopt.inference = 0`, so every rotation is taken around the
+point estimate rather than a posterior draw; that is what makes the accepted
+matrices reproducible targets. The fixtures store `SRout.Ball`, the impact
+matrices MATLAB accepted (200 each), plus `IRall` for the first 10 Uhlig draws —
+truncated because the full array is ~8 MB and the marginal validation value of
+draws 11-200 is nil.
+
+`adrr2018` uses `detc = 0`: the paper excludes the constant. A silently added
+constant would shift every residual and invalidate the narrative checks, so
+there is a test asserting the specification.

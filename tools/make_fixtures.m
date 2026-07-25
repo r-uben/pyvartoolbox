@@ -165,6 +165,73 @@ dump(se_iv, r('se'));
 dump(fs,    r('Fstat'));
 fprintf('jt2025iv: nobs=%d H=%d\n', size(ENDO_IV,1), LPo.nsteps);
 
+%% SIGN AND NARRATIVE SIGN RESTRICTIONS — accepted rotations
+% These are rejection samplers, so they cannot be matched draw-for-draw across
+% RNG streams. Instead dump the impact matrices MATLAB *accepted*, with
+% inference = 0 so every rotation is taken around the point estimate. The Python
+% side then checks that (a) its acceptance predicate accepts all of them and
+% (b) its IRFs computed from those same matrices match MATLAB's exactly.
+% This validates everything except the random number generator itself.
+
+% --- Uhlig (2005): sign restrictions only
+raw_u  = readcell(fullfile(TB, 'Replic/Uhlig2005/Uhlig2005_Data.xlsx'), 'Sheet', 'Sheet1');
+Xu     = cellfun(@double, raw_u(3:end, 2:end));
+SIGN_U = [0 0 0 0 0 0; -1 0 0 0 0 0; -1 0 0 0 0 0; 0 0 0 0 0 0; -1 0 0 0 0 0; 1 0 0 0 0 0];
+
+Vu           = VARoption;
+Vu.ident     = 'sign';
+Vu.nsteps    = 60;
+Vu.ndraws    = 200;
+Vu.sr_hor    = 6;
+Vu.inference = 0;      % rotations around the point estimate only
+Vu.impact    = 0;
+Vu.recurs    = 'wold';
+Vu.R         = SIGN_U;
+Vu.pctg      = 68;
+SRu = VARmodel(Xu, 12, 1, Vu);
+
+u = @(suffix) fullfile(OUTDIR, ['uhlig2005_' suffix '.csv']);
+dump(Xu, u('data'));
+[bn, ~, nd] = size(SRu.Ball);
+dump(reshape(SRu.Ball, bn, bn * nd), u('Ball'));
+dump([bn bn nd], u('Ballshape'));
+[is, iv_, ish, ~] = size(SRu.IRall);
+dump(reshape(SRu.IRall, is, iv_ * ish * nd), u('IRall'));
+dump([is iv_ ish nd], u('IRallshape'));
+fprintf('uhlig2005: nvar=%d accepted=%d\n', bn, nd);
+
+% --- Antolin-Diaz and Rubio-Ramirez (2018): sign + narrative
+raw_a  = readcell(fullfile(TB, 'Replic/ADRR2018/ADRR2018_Data.xlsx'), 'Sheet', 'Sheet1');
+Xa     = cellfun(@double, raw_a(3:end, 2:end));
+dts_a  = raw_a(3:end, 1);
+
+Va           = VARoption;
+Va.ident     = 'sign';
+Va.nsteps    = 60;
+Va.ndraws    = 200;
+Va.sr_hor    = 6;
+Va.inference = 0;
+Va.impact    = 0;
+Va.recurs    = 'wold';
+Va.dates     = dts_a;
+Ra.sign            = SIGN_U;
+Ra.narr_sign.shock  = 1;
+Ra.narr_sign.period = '1979m10';
+Ra.narr_sign.sign   = 1;
+Ra.narr_dom.shock   = 1;
+Ra.narr_dom.period  = '1979m10';
+Ra.narr_dom.var     = 6;
+Va.R = Ra;
+SRa = VARmodel(Xa, 12, 0, Va);
+
+a = @(suffix) fullfile(OUTDIR, ['adrr2018_' suffix '.csv']);
+dump(Xa, a('data'));
+[bn2, ~, nd2] = size(SRa.Ball);
+dump(reshape(SRa.Ball, bn2, bn2 * nd2), a('Ball'));
+dump([bn2 bn2 nd2], a('Ballshape'));
+dump(find(strcmp(dts_a, '1979m10')), a('narrperiod'));
+fprintf('adrr2018: nvar=%d accepted=%d\n', bn2, nd2);
+
 disp('done');
 
 function dump(M, fname)
