@@ -1,0 +1,98 @@
+# Roadmap
+
+Ordered by what unblocks what. The numbering is stable; branches use
+`feat/NN-slug`.
+
+## 01 — Core reduced-form VAR ✅ (v0.1.0)
+
+OLS estimation, deterministic and exogenous terms, companion form, stability,
+Wold representation, Cholesky and long-run identification, IRF, VD, residual and
+wild bootstrap bands.
+
+## 02 — Replication validation (highest priority)
+
+The upstream `Replic/` folder ships six replications with published targets.
+Matching them numerically is the entire credibility claim of this port; until it
+exists, nothing here should be used in research.
+
+Plan: run the MATLAB toolbox once on each exercise, dump IRF/VD/HD arrays to
+`.npz` fixtures, commit the fixtures (not the MATLAB), and assert agreement to
+~1e-8 in CI. Fixtures make CI reproducible without a MATLAB licence.
+
+Immediately checkable with the current code:
+
+- Stock and Watson (2001) — Cholesky
+- Blanchard and Quah (1989) — long-run zero restrictions
+
+Blocked on later tickets: Uhlig (2005), Gertler and Karadi (2015),
+Antolín-Díaz and Rubio-Ramírez (2018), Jordà and Taylor (2025).
+
+## 03 — Historical decompositions
+
+Port `compute_HD.m`. Needs the structural shock series and the initial-condition
+handling, which the upstream code splits into deterministic, initial-condition,
+and shock contributions.
+
+## 04 — External instruments (proxy SVAR)
+
+Port `recover_B.m`'s IV branch. This plus 06 is the main gap versus
+`statsmodels` and the strongest reason for the package to exist. Ordering it
+before sign restrictions because it is deterministic and cheap — no sampling
+layer, so it needs no JAX work to be usable.
+
+## 05 — Sign restrictions
+
+Port `SR.m` / `SignRestrictions.m`: draw an orthonormal `Q` by QR of a Gaussian
+matrix, rotate the Cholesky factor, keep draws satisfying the sign pattern.
+
+Design constraint to respect from the start: acceptance is data-dependent
+control flow, which does not `jit`. Structure it as fixed-size batched draws
+with a boolean acceptance mask, not an early-exit loop, so the JAX backend in 07
+is a backend swap rather than a rewrite.
+
+## 06 — Narrative sign restrictions
+
+Antolín-Díaz and Rubio-Ramírez (2018): adds importance weighting over accepted
+draws. Depends on 05.
+
+## 07 — JAX backend
+
+Only for the resampling layers, behind the same public API:
+
+- bootstrap replications — `vmap` + `jit` over the resample-and-re-estimate step
+- sign-restriction rejection sampling — `vmap` over batched rotations
+
+Non-goals: JITing the estimator itself (one small `lstsq`), or the IRF recursion
+over horizons (sequential; `lax.scan` at best, and not the bottleneck).
+
+**Must set `jax_enable_x64` at import.** float32 silently corrupts long-horizon
+IRFs and long-run restrictions, both of which run through ill-conditioned
+matrices.
+
+Acceptance criterion: numpy and JAX backends agree to 1e-10 on the 02 fixtures
+under a fixed seed, and the JAX path is measurably faster at `nboot >= 1000`.
+
+## 08 — Local projections
+
+Port `LPmodel.m`: OLS and IV local projections with Newey–West standard errors.
+Independent of 03–07; can be done in parallel.
+
+## 09 — Plotting
+
+Thin matplotlib helpers mirroring `VARirplot` / `VARhdplot` / `VARvdplot`.
+Optional dependency. Deliberately last: it is the most code for the least
+scientific value, and users can plot `(horizon, nvar, nshock)` arrays themselves.
+
+## Deliberately out of scope
+
+- `Stats/`, `Utils/`, `Figure/` — numpy, pandas and matplotlib already cover
+  these; porting them would be re-implementing the standard library.
+- Lag-order selection criteria — `statsmodels` has them and they compose fine.
+- Bayesian VARs — different package.
+
+## Open questions
+
+- Bootstrap bias correction (Kilian 1998). Upstream does not apply it by
+  default; should this?
+- Whether to accept a pandas `DataFrame` and carry variable names through, or
+  stay pure-array. Currently pure-array, names are the caller's problem.
