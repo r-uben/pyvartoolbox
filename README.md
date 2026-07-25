@@ -346,3 +346,23 @@ Why YAML rather than matplotlib's own `.mplstyle`: a style sheet can only carry
 rcParams. It has no way to express "this colour means *confidence band*" or "an
 IRF panel is 3.1 × 2.15 inches", both of which the plotting code needs. The YAML
 is the single source and emits rcParams, rather than running two config systems.
+
+## Using this repo as a Claude Code skill
+
+[`skill/`](skill) holds an agent-facing skill: `SKILL.md` plus reference files
+covering the econometrics (`theory.md`, `identification.md`, `inference.md`) and
+the practice (`api.md`, `conventions.md`, `workflows.md`, `validation.md`).
+
+```bash
+ln -s "$PWD/skill" ~/.claude/skills/pyvartoolbox
+```
+
+The text is original, written against this package's API. The upstream VAR
+Handbook was used as the authority for theory, notation and coverage, and is
+cited by section — but not reproduced, since roughly half of it documents the
+MATLAB interface and this package's conventions deliberately differ.
+
+`tests/test_skill_docs.py` keeps the docs honest: every symbol, dataset and
+identification scheme the documentation names is asserted to exist, and the
+behavioural claims (axis order, horizon counting, VD scale) are checked against
+the code. Documentation drift fails CI.
