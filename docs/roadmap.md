@@ -9,23 +9,32 @@ OLS estimation, deterministic and exogenous terms, companion form, stability,
 Wold representation, Cholesky and long-run identification, IRF, VD, residual and
 wild bootstrap bands.
 
-## 02 — Replication validation (highest priority)
+## 02 — Replication validation (partly done)
 
-The upstream `Replic/` folder ships six replications with published targets.
-Matching them numerically is the entire credibility claim of this port; until it
-exists, nothing here should be used in research.
+The upstream `Replic/` folder ships six replications. Matching them numerically
+is the entire credibility claim of this port.
 
-Plan: run the MATLAB toolbox once on each exercise, dump IRF/VD/HD arrays to
-`.npz` fixtures, commit the fixtures (not the MATLAB), and assert agreement to
-~1e-8 in CI. Fixtures make CI reproducible without a MATLAB licence.
+Machinery is in place: `tools/make_fixtures.m` drives the MATLAB toolbox and
+writes full-precision CSVs, `tests/test_reference.py` asserts against them, and
+the fixtures are committed so CI needs no licence. See `docs/fixtures.md`.
 
-Immediately checkable with the current code:
+Done:
 
-- Stock and Watson (2001) — Cholesky
-- Blanchard and Quah (1989) — long-run zero restrictions
+- Stock and Watson (2001) — Cholesky ✅
+- Blanchard and Quah (1989) — long-run zero restrictions ✅
 
-Blocked on later tickets: Uhlig (2005), Gertler and Karadi (2015),
-Antolín-Díaz and Rubio-Ramírez (2018), Jordà and Taylor (2025).
+Each remaining replication is validated as part of the ticket that implements
+its scheme, by adding a case to `make_fixtures.m`:
+
+- Gertler and Karadi (2015) → ticket 04
+- Uhlig (2005) → ticket 05
+- Antolín-Díaz and Rubio-Ramírez (2018) → ticket 06
+- Jordà and Taylor (2025) → ticket 08
+
+Note that 05 and 06 are rejection samplers, so they cannot be matched
+element-by-element across RNG streams. Validate the deterministic core (the
+rotation-to-IRF map given a fixed `Q`, and that accepted draws satisfy the sign
+pattern), plus a loose statistical comparison of median IRFs.
 
 ## 03 — Historical decompositions
 

@@ -1,7 +1,7 @@
 # STATUS — pyvartoolbox
 
 Last updated: 2026-07-25
-Stage: alpha, core estimator working, unvalidated against MATLAB
+Stage: alpha, core validated against the MATLAB reference
 
 ## Where things stand
 
