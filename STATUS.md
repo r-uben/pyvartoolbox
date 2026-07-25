@@ -6,9 +6,10 @@ Repo: https://github.com/r-uben/pyvartoolbox (public, GPL-3.0, CI green)
 
 ## Where things stand
 
-161 tests pass on Python 3.11/3.12/3.13; ruff clean.
+167 tests pass on Python 3.11/3.12/3.13; ruff clean.
 
-All nine roadmap tickets are closed, including ticket 02: every one of the six
+All nine roadmap tickets are closed and every identification scheme in the MATLAB
+toolbox is ported. Ticket 02: every one of the six
 upstream replications is now validated, though not all to the same strength.
 
 ### Exact, against MATLAB VAR Toolbox 4.0
