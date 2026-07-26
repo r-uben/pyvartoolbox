@@ -4,6 +4,9 @@ type: index
 
 # VAR/SVAR concept graph
 
+**[See the rendered diagram](GRAPH.md)** — 25 concepts and their relations, drawn
+from these notes.
+
 Atomic, wikilinked notes on the econometrics behind this package. Each note is
 one concept, states relations explicitly, and cites the section of the upstream
 VAR Handbook where a fuller derivation lives.

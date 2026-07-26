@@ -1,5 +1,5 @@
 ---
-type: concept
+type: inference
 implemented_by: sign_restricted_irf
 ---
 

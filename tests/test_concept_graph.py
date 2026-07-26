@@ -16,8 +16,13 @@ INDEX = GRAPH / "INDEX.md"
 WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
 
 
+#: Generated or hand-written scaffolding, not concept notes. They carry no
+#: Relations section and would fail every structural check below.
+NOT_NOTES = {"INDEX.md", "GRAPH.md", "README.md"}
+
+
 def _notes():
-    return sorted(p for p in GRAPH.glob("*.md") if p.name != "INDEX.md")
+    return sorted(p for p in GRAPH.glob("*.md") if p.name not in NOT_NOTES)
 
 
 def _links(text):
@@ -120,3 +125,50 @@ class TestContent:
         text = INDEX.read_text(encoding="utf-8").lower()
         assert "original" in text
         assert "handbook" in text
+
+
+class TestDiagram:
+    """GRAPH.md is generated; these guard against it drifting from the notes."""
+
+    def test_diagram_is_current(self, notes):
+        """Regenerating must be a no-op. If this fails, run
+        `pyvartoolbox-graph-diagram` and commit the result."""
+        from pyvartoolbox._graph import build_page, parse_notes
+
+        current = (GRAPH / "GRAPH.md").read_text(encoding="utf-8")
+        assert build_page(parse_notes(GRAPH)) == current
+
+    def test_every_note_appears_as_a_node(self, notes):
+        text = (GRAPH / "GRAPH.md").read_text(encoding="utf-8")
+        missing = sorted(slug for slug in notes if f"    {slug}[" not in text)
+        assert not missing, f"absent from the diagram: {missing}"
+
+    def test_edges_were_extracted(self, notes):
+        from pyvartoolbox._graph import parse_notes
+
+        parsed = parse_notes(GRAPH)
+        total = sum(len(n["edges"]) for n in parsed.values())
+        assert total >= 40, "relations are not being parsed"
+
+    def test_no_edge_points_outside_the_graph(self):
+        from pyvartoolbox._graph import parse_notes
+
+        parsed = parse_notes(GRAPH)
+        for slug, note in parsed.items():
+            for _, target in note["edges"]:
+                assert target in parsed, f"{slug} -> {target} is dangling"
+
+    def test_foundations_are_grouped_by_layer_not_type(self):
+        """Every foundational note is type 'concept', but so are cross-cutting
+        ones — grouping on type alone silently over-collects."""
+        from pyvartoolbox._graph import _group_of
+
+        assert _group_of({"layer": "foundation", "type": "concept"}) == "foundation"
+        assert _group_of({"layer": "", "type": "inference"}) == "inference"
+        assert _group_of({"layer": "", "type": "concept"}) == "other"
+
+    def test_mermaid_block_is_present_and_closed(self):
+        text = (GRAPH / "GRAPH.md").read_text(encoding="utf-8")
+        assert text.count("```") == 2
+        assert "```mermaid" in text
+        assert "graph LR" in text

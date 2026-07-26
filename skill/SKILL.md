@@ -18,7 +18,7 @@ read them all.
 | --- | --- |
 | Choose an identification strategy | `references/identification.md` |
 | Understand the econometrics | `references/theory.md` |
-| Traverse the theory as a linked graph | `graph/INDEX.md` |
+| Traverse the theory as a linked graph | `graph/INDEX.md`, diagram in `graph/GRAPH.md` |
 | Read the original handbook derivations | `handbook/INDEX.md` |
 | Know what a band means before quoting it | `references/inference.md` |
 | Call the API correctly | `references/api.md` |
