@@ -16,9 +16,11 @@ HANDBOOK = Path(__file__).parent.parent / "skill" / "handbook"
 
 @pytest.fixture(scope="module")
 def pages():
-    # INDEX and README are hand-written scaffolding, not converted pages. README
-    # in particular quotes the very patterns these tests forbid, since it
-    # documents what the conversion strips.
+    # Neither is a converted section. README is written by hand, and quotes the
+    # very patterns these tests forbid, since it documents what the conversion
+    # strips. INDEX is generator output, but from `_index()` rather than pandoc,
+    # so it carries none of a page's structure; test_index_is_current guards it
+    # instead.
     files = sorted(
         p for p in HANDBOOK.glob("*.md") if p.name not in ("INDEX.md", "README.md")
     )
@@ -35,6 +37,14 @@ class TestStructure:
         index = (HANDBOOK / "INDEX.md").read_text(encoding="utf-8")
         for name in pages:
             assert name in index, f"{name} missing from INDEX"
+
+    def test_index_is_current(self, pages):
+        """INDEX.md is generated; regenerating must be a no-op. If this fails,
+        run `pyvartoolbox-convert-handbook` and commit the result."""
+        from pyvartoolbox_docs._convert import _index
+
+        current = (HANDBOOK / "INDEX.md").read_text(encoding="utf-8")
+        assert _index([HANDBOOK / name for name in pages]) == current
 
     def test_every_page_has_frontmatter(self, pages):
         for name, text in pages.items():
@@ -100,26 +110,26 @@ class TestAttribution:
 
 class TestConverter:
     def test_balanced_brace_extraction(self):
-        from pyvartoolbox._convert import _balanced
+        from pyvartoolbox_docs._convert import _balanced
 
         text = r"\caption{Outer \scshape{Inner} tail}"
         content, _ = _balanced(text, text.index("{"))
         assert content == r"Outer \scshape{Inner} tail"
 
     def test_unbalanced_braces_are_reported(self):
-        from pyvartoolbox._convert import _balanced
+        from pyvartoolbox_docs._convert import _balanced
 
         with pytest.raises(ValueError, match="unbalanced"):
             _balanced("{no close", 0)
 
     def test_custom_environments_are_rewritten(self):
-        from pyvartoolbox._convert import preprocess
+        from pyvartoolbox_docs._convert import preprocess
 
         out = preprocess(r"\begin{matlabcode}x = 1;\end{matlabcode}")
         assert "lstlisting" in out and "language=matlab" in out
 
     def test_split_requires_sections(self):
-        from pyvartoolbox._convert import split_tex
+        from pyvartoolbox_docs._convert import split_tex
 
         with pytest.raises(ValueError, match="no .*section"):
             split_tex("no sections here")

@@ -20,6 +20,10 @@ every change and is plain text, so it cannot go stale and a model can
 parse it. **Do not hand-edit** — regenerate. A hand-maintained map drifts
 within a week, and a wrong map is worse than none.
 
+Regenerating is maintainer tooling and needs a repo checkout: the command
+ships with the `pyvartoolbox-docs` dev workspace package, not with the
+installed library.
+
 ```mermaid
 graph LR
   subgraph foundation["Foundations"]

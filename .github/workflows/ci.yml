@@ -19,4 +19,8 @@ jobs:
           enable-cache: true
       - run: uv sync --all-extras
       - run: uv run ruff check .
+      # tests/test_packaging.py inspects the built wheel and skips when dist/ is
+      # absent. Without this step it skipped on every run, so the guard against
+      # dev-only modules re-entering the distribution never actually fired.
+      - run: uv build
       - run: uv run pytest --cov=pyvartoolbox --cov-report=term-missing

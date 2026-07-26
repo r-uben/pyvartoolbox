@@ -1,7 +1,33 @@
-"""Structural identification: mapping reduced-form residuals to shocks.
+"""Point-identified structural schemes, and the ``impact_matrix`` dispatcher.
 
-Every scheme returns ``B0inv``, the ``(nvar, nvar)`` impact matrix satisfying
-``sigma = B0inv @ B0inv.T``. Structural IRFs are then ``Psi_h @ B0inv``.
+Which module a scheme lives in
+------------------------------
+The split between this module and ``sign.py`` is point identification versus set
+identification, and nothing else:
+
+* **Point-identified** schemes — here. The assumptions pin down a *single*
+  impact matrix, so a function can return one ``(nvar, nvar)`` array.
+* **Set-identified** schemes — ``sign.py``. The assumptions admit a whole family
+  of admissible impact matrices, so the answer is a *distribution*, produced by
+  sampling the identified set with ``sign_restricted_irf``.
+
+That is the distinction a user has to grasp before anything else in the package
+makes sense, so it is also the one the file layout encodes. It is not a split by
+source paper, by computational cost, or by how recently a scheme was added.
+
+``impact_matrix`` dispatches over this module alone, because its contract is to
+return one ``B0inv``, and a set-identified scheme has none to return. Asking it
+for ``"sign"`` therefore raises and points at ``sign_restricted_irf`` — the
+scheme is implemented, just not through a function of this shape.
+
+Every scheme here returns ``B0inv``, the ``(nvar, nvar)`` impact matrix, and
+structural IRFs are ``Psi_h @ B0inv``. ``chol`` and ``longrun`` satisfy
+``sigma == B0inv @ B0inv.T`` exactly. ``iv`` need not: it restores the
+instrument-identified column on top of a numerical completion, and that column
+is only approximately unit-norm in the Cholesky basis whenever the instrument is
+observed on a shorter sample than ``sigma``. When the instrument spans the full
+VAR sample the identity happens to hold to machine precision; when it does not,
+the gap is real and is accepted deliberately. See ``_complete``.
 
 Implemented
 -----------
@@ -11,19 +37,20 @@ Implemented
 ``"longrun"``
     Zero long-run restrictions in the manner of Blanchard and Quah (1989). The
     cumulative effect of shock ``j`` on variable ``i`` is zero for ``i < j``.
+``"iv"``
+    External instruments (proxy SVAR). Point-identified but *partial*: only the
+    first shock is identified. See ``PARTIAL``.
 
 Not yet implemented
 -------------------
-Sign restrictions, narrative sign restrictions, external instruments
-(proxy SVAR), instruments combined with sign restrictions, and exogenous
-variable identification. See ``docs/roadmap.md``; these are the schemes that
-motivate the port, since ``statsmodels`` covers neither proxy SVARs nor
-narrative restrictions.
+Exogenous variable identification; see ``docs/roadmap.md``.
 """
 
 from __future__ import annotations
 
 import numpy as np
+
+from ._linalg import cholesky, orthonormal_completion
 
 SCHEMES = ("chol", "longrun", "iv")
 
@@ -32,29 +59,24 @@ SCHEMES = ("chol", "longrun", "iv")
 #: variance decompositions for those shocks are zeroed before being returned.
 PARTIAL = frozenset({"iv"})
 
-_PLANNED = {
+#: Set-identified schemes. These are implemented — in ``sign.py``, as samplers
+#: over the identified set — but they have no single ``B0inv``, so they are
+#: unreachable through ``impact_matrix`` by construction rather than by omission.
+_SET_IDENTIFIED = {
     "sign": "sign restrictions",
     "narrative": "narrative sign restrictions",
     "signiv": "external instruments combined with sign restrictions",
+}
+
+#: Point-identified schemes that would belong here once written.
+_PLANNED = {
     "exog": "exogenous variable identification",
 }
 
 
-def _cholesky(sigma: np.ndarray) -> np.ndarray:
-    """Lower-triangular Cholesky factor, with a readable failure mode."""
-    try:
-        return np.linalg.cholesky(sigma)
-    except np.linalg.LinAlgError as exc:
-        raise np.linalg.LinAlgError(
-            "residual covariance is not positive definite; the VAR is likely "
-            "over-parameterised (too many lags for the sample) or contains a "
-            "linearly dependent series"
-        ) from exc
-
-
 def chol(model) -> np.ndarray:
     """Zero contemporaneous restrictions."""
-    return _cholesky(model.sigma)
+    return cholesky(model.sigma)
 
 
 def longrun(model) -> np.ndarray:
@@ -77,7 +99,7 @@ def longrun(model) -> np.ndarray:
             "restrictions are not identified. Difference the data first."
         )
     C1 = np.linalg.inv(lr)
-    return np.linalg.solve(C1, _cholesky(C1 @ model.sigma @ C1.T))
+    return np.linalg.solve(C1, cholesky(C1 @ model.sigma @ C1.T))
 
 
 def _ols(y: np.ndarray, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -102,15 +124,12 @@ def _complete(b1: np.ndarray, sigma: np.ndarray) -> np.ndarray:
     Upstream's ``complete_B`` makes the same trade.
     """
     nvar = sigma.shape[0]
-    P = _cholesky(sigma)
+    P = cholesky(sigma)
     q1 = np.linalg.solve(P, b1)
     # b1 comes from the IV sample while sigma comes from the VAR sample, so the
     # norm is only approximately one; normalise before completing.
     q1 = q1 / np.linalg.norm(q1)
-    Q, _ = np.linalg.qr(np.column_stack([q1, np.eye(nvar)]))
-    if Q[:, 0] @ q1 < 0:
-        Q[:, 0] = -Q[:, 0]
-    B = P @ Q
+    B = P @ orthonormal_completion(q1, nvar)
     B[:, 0] = b1
     return B
 
@@ -183,10 +202,14 @@ _DISPATCH = {"chol": chol, "longrun": longrun, "iv": proxy_iv}
 
 
 def impact_matrix(model, ident: str = "chol", **kwargs) -> np.ndarray:
-    """Return ``B0inv`` for the requested identification scheme.
+    """Return ``B0inv`` for the requested point-identified scheme.
 
     Extra keyword arguments are passed to the scheme: ``iv=`` is required by
     ``ident="iv"``.
+
+    Only point-identified schemes are reachable here. A set-identified scheme
+    has no single ``B0inv`` to return, so naming one raises and points at
+    ``sign_restricted_irf`` instead.
     """
     if ident in _DISPATCH:
         try:
@@ -198,6 +221,16 @@ def impact_matrix(model, ident: str = "chol", **kwargs) -> np.ndarray:
                     f"arguments: {exc}"
                 ) from exc
             raise
+    if ident in _SET_IDENTIFIED:
+        raise NotImplementedError(
+            f"identification scheme {ident!r} ({_SET_IDENTIFIED[ident]}) is "
+            "set-identified: it admits a family of admissible impact matrices "
+            "rather than a single one, so there is no B for impact_matrix to "
+            "return. The scheme itself is implemented — call "
+            "sign_restricted_irf(model, restrictions, ...), which samples the "
+            "identified set and returns a distribution of impulse responses. "
+            f"impact_matrix covers the point-identified schemes only: {SCHEMES}"
+        )
     if ident in _PLANNED:
         raise NotImplementedError(
             f"identification scheme {ident!r} ({_PLANNED[ident]}) is on the "

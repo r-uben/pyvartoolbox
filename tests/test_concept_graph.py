@@ -133,7 +133,7 @@ class TestDiagram:
     def test_diagram_is_current(self, notes):
         """Regenerating must be a no-op. If this fails, run
         `pyvartoolbox-graph-diagram` and commit the result."""
-        from pyvartoolbox._graph import build_page, parse_notes
+        from pyvartoolbox_docs._graph import build_page, parse_notes
 
         current = (GRAPH / "GRAPH.md").read_text(encoding="utf-8")
         assert build_page(parse_notes(GRAPH)) == current
@@ -144,14 +144,14 @@ class TestDiagram:
         assert not missing, f"absent from the diagram: {missing}"
 
     def test_edges_were_extracted(self, notes):
-        from pyvartoolbox._graph import parse_notes
+        from pyvartoolbox_docs._graph import parse_notes
 
         parsed = parse_notes(GRAPH)
         total = sum(len(n["edges"]) for n in parsed.values())
         assert total >= 40, "relations are not being parsed"
 
     def test_no_edge_points_outside_the_graph(self):
-        from pyvartoolbox._graph import parse_notes
+        from pyvartoolbox_docs._graph import parse_notes
 
         parsed = parse_notes(GRAPH)
         for slug, note in parsed.items():
@@ -161,7 +161,7 @@ class TestDiagram:
     def test_foundations_are_grouped_by_layer_not_type(self):
         """Every foundational note is type 'concept', but so are cross-cutting
         ones — grouping on type alone silently over-collects."""
-        from pyvartoolbox._graph import _group_of
+        from pyvartoolbox_docs._graph import _group_of
 
         assert _group_of({"layer": "foundation", "type": "concept"}) == "foundation"
         assert _group_of({"layer": "", "type": "inference"}) == "inference"

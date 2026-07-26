@@ -23,6 +23,9 @@ and gitignored.
 
 - [GRAPH.md](GRAPH.md) — the Obsidian render as a committed screenshot, plus a
   Mermaid diagram generated from the notes, which GitHub displays inline.
-- Regenerate the Mermaid with `pyvartoolbox-graph-diagram`.
+- Regenerate the Mermaid with `uv run pyvartoolbox-graph-diagram`. That command
+  is maintainer tooling: it ships with the `pyvartoolbox-docs` dev workspace
+  package and is only on the PATH inside a repo checkout, not after a
+  `pip install pyvartoolbox`.
 
 Foam, Logseq and Dendron read this layout directly as well.

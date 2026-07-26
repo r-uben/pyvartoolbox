@@ -1,13 +1,16 @@
 # Provenance
 
-These files are **generated**. Do not hand-edit — regenerate with:
+These files are **generated**. Do not hand-edit — regenerate from a repo
+checkout with:
 
 ```bash
 git clone --depth 1 https://github.com/ambropo/VAR-Toolbox.git
-pyvartoolbox-convert-handbook --tex VAR-Toolbox/VAR_Handbook.tex --outdir skill/handbook
+uv run pyvartoolbox-convert-handbook --tex VAR-Toolbox/VAR_Handbook.tex --outdir skill/handbook
 ```
 
-Requires `pandoc`.
+Requires `pandoc`. `pyvartoolbox-convert-handbook` is maintainer tooling: it
+ships with the `pyvartoolbox-docs` dev workspace package and is only on the PATH
+inside a repo checkout, not after a `pip install pyvartoolbox`.
 
 ## What the conversion does, and why
 

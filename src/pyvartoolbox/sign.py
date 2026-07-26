@@ -1,8 +1,28 @@
-"""Sign-restriction identification (port of ``SignRestrictions.m``).
+"""Set-identified schemes and the sampler over the identified set.
 
-Draws orthonormal rotations of the Cholesky factor until one satisfies a sign
-pattern. Unlike the other schemes this is a *set* identification: there is no
-single answer, only a distribution over admissible impact matrices.
+Port of ``SignRestrictions.m``. Draws orthonormal rotations of the Cholesky
+factor until one satisfies a sign pattern.
+
+Which module a scheme lives in
+------------------------------
+This module holds the **set-identified** schemes — sign restrictions, narrative
+sign restrictions, and sign restrictions combined with an instrument. Their
+assumptions admit a whole family of admissible impact matrices rather than one,
+so the answer is a *distribution*: ``sign_restricted_irf`` samples the set and
+reports percentile bands across accepted draws. ``ident.py`` holds the
+**point-identified** schemes, where the assumptions pin down a single ``B0inv``
+and ``impact_matrix`` can return it. That is the whole rule, and it is why
+``impact_matrix(model, "sign")`` raises and redirects here: the scheme is
+implemented, but not as a function returning one matrix.
+
+Every draw is a full square ``B0inv``, since the narrative check and the
+historical decomposition both need to invert it. A plain sign draw is
+``P @ Q`` with ``Q`` orthonormal, so it satisfies ``sigma == B @ B.T`` exactly.
+The sign+IV path is the exception: it restores the instrument-identified column
+0 on top of the rotation, so the identity need not hold — for the same reason,
+and under the same condition, as ``ident._complete``: the restored column is
+only approximately unit-norm in the Cholesky basis when the instrument is
+observed on a shorter sample than ``sigma``.
 
 Restrictions are given as an ``(nvar, nshock)`` array of ``+1`` (response must be
 non-negative), ``-1`` (non-positive), and ``0`` (unrestricted). Restrictions can
@@ -18,7 +38,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .ident import _cholesky, proxy_iv
+from ._linalg import cholesky, orthonormal_completion
+from .ident import proxy_iv
 from .posterior import draw_posterior
 
 
@@ -52,14 +73,6 @@ def haar_rotation(nvar: int, rng: np.random.Generator) -> np.ndarray:
     """
     q, r = np.linalg.qr(rng.standard_normal((nvar, nvar)))
     return q * np.sign(np.diag(r))
-
-
-def _complete_basis(q1: np.ndarray, nvar: int) -> np.ndarray:
-    """Orthonormal basis whose first column is ``q1`` (assumed unit norm)."""
-    Q, _ = np.linalg.qr(np.column_stack([q1, np.eye(nvar)]))
-    if Q[:, 0] @ q1 < 0:
-        Q[:, 0] = -Q[:, 0]
-    return Q
 
 
 def _match(
@@ -132,7 +145,7 @@ def draw_rotation(
     if not np.isin(restrictions, (-1.0, 0.0, 1.0)).all():
         raise ValueError("restrictions must contain only -1, 0 and +1")
 
-    P = _cholesky(model.sigma)
+    P = cholesky(model.sigma)
     psi = model.wold(sr_hor - 1) if sr_hor > 1 else None
 
     # One rotation at a time, deliberately. Batching was tried, together with a
@@ -145,7 +158,7 @@ def draw_rotation(
         # complete it to an orthonormal basis. Only the orthogonal complement is
         # then rotated, so column 0 survives every draw unchanged.
         q1 = np.linalg.solve(P, np.asarray(b_iv, dtype=float).ravel())
-        Q0 = _complete_basis(q1 / np.linalg.norm(q1), nvar)
+        Q0 = orthonormal_completion(q1 / np.linalg.norm(q1), nvar)
 
     for ntried in range(1, max_rot + 1):
         if b_iv is None:
