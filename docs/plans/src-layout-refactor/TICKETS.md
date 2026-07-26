@@ -50,7 +50,7 @@ these must remain real entry points, not loose scripts. Update the imports in
 
 **Done when:**
 - `ls src/pyvartoolbox/_convert.py src/pyvartoolbox/_graph.py` exits non-zero
-- `uv run pytest -q` exits 0 with 249 tests collected — in particular
+- `uv run pytest -q` exits 0 with 252 tests collected — in particular
   `tests/test_concept_graph.py::TestDiagram::test_diagram_is_current`, which
   imports `build_page`/`parse_notes` and regenerates `GRAPH.md` to compare
 - `git diff -- tests/ | grep -E '^[+-]' | grep -v '^[+-][+-]' | grep -vcE '^[+-].*(import|from)'` prints `0`
