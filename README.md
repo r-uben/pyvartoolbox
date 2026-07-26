@@ -71,6 +71,7 @@ It is the canonical documentation — this README is only an entry point.
 | [Choosing an identification scheme](skill/references/identification.md) | assumptions, when each is defensible, how it fails |
 | [Econometric background](skill/references/theory.md) | the identification problem, Wold, stability |
 | [Concept graph](skill/graph/INDEX.md) | the same theory as linked atomic notes |
+| [VAR Handbook, reformatted](skill/handbook/INDEX.md) | Cesa-Bianchi's handbook converted for machine reading |
 | [What each band means](skill/references/inference.md) | bootstrap vs identified set vs posterior |
 | [API reference](skill/references/api.md) | every public symbol and shape |
 | [Conventions and gotchas](skill/references/conventions.md) | read this when a result looks wrong |

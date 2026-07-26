@@ -26,6 +26,7 @@ dependencies = [
 
 [project.scripts]
 pyvartoolbox-replicate = "pyvartoolbox.replications:main"
+pyvartoolbox-convert-handbook = "pyvartoolbox._convert:main"
 
 [project.urls]
 Homepage = "https://github.com/r-uben/pyvartoolbox"
