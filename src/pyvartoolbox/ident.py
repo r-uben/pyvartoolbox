@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ._linalg import cholesky, orthonormal_completion
+
 SCHEMES = ("chol", "longrun", "iv")
 
 #: Schemes that identify only the first structural shock. The remaining columns
@@ -40,21 +42,9 @@ _PLANNED = {
 }
 
 
-def _cholesky(sigma: np.ndarray) -> np.ndarray:
-    """Lower-triangular Cholesky factor, with a readable failure mode."""
-    try:
-        return np.linalg.cholesky(sigma)
-    except np.linalg.LinAlgError as exc:
-        raise np.linalg.LinAlgError(
-            "residual covariance is not positive definite; the VAR is likely "
-            "over-parameterised (too many lags for the sample) or contains a "
-            "linearly dependent series"
-        ) from exc
-
-
 def chol(model) -> np.ndarray:
     """Zero contemporaneous restrictions."""
-    return _cholesky(model.sigma)
+    return cholesky(model.sigma)
 
 
 def longrun(model) -> np.ndarray:
@@ -77,7 +67,7 @@ def longrun(model) -> np.ndarray:
             "restrictions are not identified. Difference the data first."
         )
     C1 = np.linalg.inv(lr)
-    return np.linalg.solve(C1, _cholesky(C1 @ model.sigma @ C1.T))
+    return np.linalg.solve(C1, cholesky(C1 @ model.sigma @ C1.T))
 
 
 def _ols(y: np.ndarray, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -102,15 +92,12 @@ def _complete(b1: np.ndarray, sigma: np.ndarray) -> np.ndarray:
     Upstream's ``complete_B`` makes the same trade.
     """
     nvar = sigma.shape[0]
-    P = _cholesky(sigma)
+    P = cholesky(sigma)
     q1 = np.linalg.solve(P, b1)
     # b1 comes from the IV sample while sigma comes from the VAR sample, so the
     # norm is only approximately one; normalise before completing.
     q1 = q1 / np.linalg.norm(q1)
-    Q, _ = np.linalg.qr(np.column_stack([q1, np.eye(nvar)]))
-    if Q[:, 0] @ q1 < 0:
-        Q[:, 0] = -Q[:, 0]
-    B = P @ Q
+    B = P @ orthonormal_completion(q1, nvar)
     B[:, 0] = b1
     return B
 

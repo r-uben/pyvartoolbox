@@ -18,7 +18,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .ident import _cholesky, proxy_iv
+from ._linalg import cholesky, orthonormal_completion
+from .ident import proxy_iv
 from .posterior import draw_posterior
 
 
@@ -52,14 +53,6 @@ def haar_rotation(nvar: int, rng: np.random.Generator) -> np.ndarray:
     """
     q, r = np.linalg.qr(rng.standard_normal((nvar, nvar)))
     return q * np.sign(np.diag(r))
-
-
-def _complete_basis(q1: np.ndarray, nvar: int) -> np.ndarray:
-    """Orthonormal basis whose first column is ``q1`` (assumed unit norm)."""
-    Q, _ = np.linalg.qr(np.column_stack([q1, np.eye(nvar)]))
-    if Q[:, 0] @ q1 < 0:
-        Q[:, 0] = -Q[:, 0]
-    return Q
 
 
 def _match(
@@ -132,7 +125,7 @@ def draw_rotation(
     if not np.isin(restrictions, (-1.0, 0.0, 1.0)).all():
         raise ValueError("restrictions must contain only -1, 0 and +1")
 
-    P = _cholesky(model.sigma)
+    P = cholesky(model.sigma)
     psi = model.wold(sr_hor - 1) if sr_hor > 1 else None
 
     # One rotation at a time, deliberately. Batching was tried, together with a
@@ -145,7 +138,7 @@ def draw_rotation(
         # complete it to an orthonormal basis. Only the orthogonal complement is
         # then rotated, so column 0 survives every draw unchanged.
         q1 = np.linalg.solve(P, np.asarray(b_iv, dtype=float).ravel())
-        Q0 = _complete_basis(q1 / np.linalg.norm(q1), nvar)
+        Q0 = orthonormal_completion(q1 / np.linalg.norm(q1), nvar)
 
     for ntried in range(1, max_rot + 1):
         if b_iv is None:
