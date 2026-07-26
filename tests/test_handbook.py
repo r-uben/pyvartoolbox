@@ -100,26 +100,26 @@ class TestAttribution:
 
 class TestConverter:
     def test_balanced_brace_extraction(self):
-        from pyvartoolbox._convert import _balanced
+        from pyvartoolbox_docs._convert import _balanced
 
         text = r"\caption{Outer \scshape{Inner} tail}"
         content, _ = _balanced(text, text.index("{"))
         assert content == r"Outer \scshape{Inner} tail"
 
     def test_unbalanced_braces_are_reported(self):
-        from pyvartoolbox._convert import _balanced
+        from pyvartoolbox_docs._convert import _balanced
 
         with pytest.raises(ValueError, match="unbalanced"):
             _balanced("{no close", 0)
 
     def test_custom_environments_are_rewritten(self):
-        from pyvartoolbox._convert import preprocess
+        from pyvartoolbox_docs._convert import preprocess
 
         out = preprocess(r"\begin{matlabcode}x = 1;\end{matlabcode}")
         assert "lstlisting" in out and "language=matlab" in out
 
     def test_split_requires_sections(self):
-        from pyvartoolbox._convert import split_tex
+        from pyvartoolbox_docs._convert import split_tex
 
         with pytest.raises(ValueError, match="no .*section"):
             split_tex("no sections here")

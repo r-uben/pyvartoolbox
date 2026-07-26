@@ -26,8 +26,6 @@ dependencies = [
 
 [project.scripts]
 pyvartoolbox-replicate = "pyvartoolbox.replications:main"
-pyvartoolbox-convert-handbook = "pyvartoolbox._convert:main"
-pyvartoolbox-graph-diagram = "pyvartoolbox._graph:main"
 
 [project.urls]
 Homepage = "https://github.com/r-uben/pyvartoolbox"
@@ -52,7 +50,17 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
     "ruff>=0.6.0",
+    # Repo documentation tooling (handbook conversion, concept-graph diagram).
+    # A workspace member, so its console scripts resolve under `uv run` in the
+    # repo but never ship in the published wheel.
+    "pyvartoolbox-docs",
 ]
+
+[tool.uv.workspace]
+members = ["tools/pyvartoolbox_docs"]
+
+[tool.uv.sources]
+pyvartoolbox-docs = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
