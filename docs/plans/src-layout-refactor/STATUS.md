@@ -9,9 +9,10 @@ B1 (`d3e11a9`), B2 (`4a8597c`), A3 (`33536af`), C2 (`9e27d3b`), C1 (`fc953f5`). 
 ticket was verified against its Done-when by the dispatcher rather than on the
 implementer's self-report. Working tree clean; 258 tests pass, ruff clean.
 
-One ticket remains, and it is not optional: **C3** — C1's packaging guard never runs
-in CI, so the regression it exists to prevent is still unguarded on every pull request.
-Nothing pushed since wave 1.
+**C3 is done and CI-verified**, closing the last gap: run 30197139066 reports
+`258 passed`, **0 skipped**, on 3.11/3.12/3.13 — the four packaging tests now execute
+instead of silently skipping. Branch pushed; PR #1 open
+(https://github.com/r-uben/pyvartoolbox/pull/1). **The plan is complete.**
 
 **The panel was one model, not three.** codex (session 142) delivered a
 substantive critique. gemini (143) failed on expired OAuth; grok (144) returned
@@ -40,7 +41,7 @@ before dispatching wave 1.
 | B2 | identification cohesion | DONE | B1 (collision) | 2 |
 | C1 | regression guard | DONE² | A2 | 3 |
 | C2 | regression guard | DONE | — | 3 |
-| C3 | regression guard | TODO | C1 | 4 |
+| C3 | regression guard | DONE | C1 | 4 |
 
 ² C1 also lacks a reviewer pass — `rev-C1` went idle without reporting. Verified
 independently by the dispatcher, including the teeth proof and a `configparser`
@@ -148,10 +149,15 @@ claimed. Prose claims and skipped tests are both invisible to it.
 
 ## Next action
 
-Dispatch **C3** — add `uv build` to `.github/workflows/ci.yml` before the pytest step.
-Until it lands, C1 is a guard that never fires where it matters, and the branch should
-not be presented as having packaging protection.
+Nothing to dispatch — all eight tickets are DONE and CI-verified. The remaining work is
+human review of PR #1.
 
-Then push the branch and open the PR. Still outstanding: the plan's panel was
-effectively one model (codex) — gemini failed on expired OAuth, grok returned empty.
-C1/C2/C3 were never panel-reviewed at all.
+Two caveats to carry into that review, both recorded rather than smoothed over:
+- **A2 and C1 had one verification pass, not two.** A2's change landed inside A1's diff
+  (dispatch-prompt error); `rev-C1` went idle twice without reporting even after a
+  re-prompt. Both were verified independently by the dispatcher — that verification is
+  what found C1's `configparser` bug and the CI skip — but neither got the
+  implementer+reviewer pair the other six received.
+- **The advisory panel was one model throughout.** codex critiqued the original graph;
+  gemini failed on expired OAuth and grok returned empty. C1, C2 and C3 were never
+  panel-reviewed at all, having been written after the panel ran.
