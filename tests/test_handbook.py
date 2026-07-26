@@ -16,9 +16,11 @@ HANDBOOK = Path(__file__).parent.parent / "skill" / "handbook"
 
 @pytest.fixture(scope="module")
 def pages():
-    # INDEX and README are hand-written scaffolding, not converted pages. README
-    # in particular quotes the very patterns these tests forbid, since it
-    # documents what the conversion strips.
+    # Neither is a converted section. README is written by hand, and quotes the
+    # very patterns these tests forbid, since it documents what the conversion
+    # strips. INDEX is generator output, but from `_index()` rather than pandoc,
+    # so it carries none of a page's structure; test_index_is_current guards it
+    # instead.
     files = sorted(
         p for p in HANDBOOK.glob("*.md") if p.name not in ("INDEX.md", "README.md")
     )
@@ -35,6 +37,14 @@ class TestStructure:
         index = (HANDBOOK / "INDEX.md").read_text(encoding="utf-8")
         for name in pages:
             assert name in index, f"{name} missing from INDEX"
+
+    def test_index_is_current(self, pages):
+        """INDEX.md is generated; regenerating must be a no-op. If this fails,
+        run `pyvartoolbox-convert-handbook` and commit the result."""
+        from pyvartoolbox_docs._convert import _index
+
+        current = (HANDBOOK / "INDEX.md").read_text(encoding="utf-8")
+        assert _index([HANDBOOK / name for name in pages]) == current
 
     def test_every_page_has_frontmatter(self, pages):
         for name, text in pages.items():
