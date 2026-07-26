@@ -7,9 +7,11 @@ installing anything or cloning the repo.
 Generated rather than hand-drawn: a hand-maintained diagram drifts from the
 notes within a week, and a wrong diagram is worse than none.
 
-Run::
+Maintainer tooling: the console script belongs to the ``pyvartoolbox-docs`` dev
+workspace package, so it resolves inside a repo checkout only — installing
+``pyvartoolbox`` does not put it on the PATH. Run::
 
-    pyvartoolbox-graph-diagram --graph skill/graph
+    uv run pyvartoolbox-graph-diagram --graph skill/graph
 """
 
 from __future__ import annotations
@@ -143,6 +145,10 @@ def build_page(notes: dict[str, dict]) -> str:
             "every change and is plain text, so it cannot go stale and a model can",
             "parse it. **Do not hand-edit** — regenerate. A hand-maintained map drifts",
             "within a week, and a wrong map is worse than none.",
+            "",
+            "Regenerating is maintainer tooling and needs a repo checkout: the command",
+            "ships with the `pyvartoolbox-docs` dev workspace package, not with the",
+            "installed library.",
             "",
             "```mermaid",
             diagram,
