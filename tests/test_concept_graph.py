@@ -172,3 +172,41 @@ class TestDiagram:
         assert text.count("```") == 2
         assert "```mermaid" in text
         assert "graph LR" in text
+
+
+def test_graph_view_screenshot_is_present_and_referenced():
+    """The Obsidian render is the readable view; a broken image link there
+    leaves only the dense Mermaid fallback."""
+    image = GRAPH / "graph-view.png"
+    assert image.exists(), "graph-view.png is missing"
+    assert image.stat().st_size > 10_000
+    assert "graph-view.png" in (GRAPH / "GRAPH.md").read_text(encoding="utf-8")
+
+
+def test_obsidian_colours_cover_every_type_in_use():
+    """A type with no colour group renders grey and reads as uncategorised —
+    which is how point-vs-set-identification, the most consequential node,
+    silently lost its colour."""
+    import json
+
+    config = json.loads(
+        (GRAPH / ".obsidian" / "graph.json").read_text(encoding="utf-8")
+    )
+    queried = " ".join(g["query"] for g in config["colorGroups"])
+    types = {
+        re.search(r"^type:\s*(\S+)", p.read_text(encoding="utf-8"), re.M).group(1)
+        for p in _notes()
+    }
+    missing = sorted(t for t in types if t not in queried and t != "concept")
+    assert not missing, f"types with no graph colour: {missing}"
+
+
+def test_obsidian_hides_navigational_scaffolding():
+    """INDEX links to every note, so leaving it visible makes it the largest hub
+    and displaces the concept that actually is central."""
+    import json
+
+    config = json.loads(
+        (GRAPH / ".obsidian" / "graph.json").read_text(encoding="utf-8")
+    )
+    assert "-file:INDEX" in config["search"]
