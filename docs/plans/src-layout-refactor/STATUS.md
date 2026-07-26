@@ -4,13 +4,14 @@ Last updated: 2026-07-26
 
 ## Stage
 
-Wave 1 dispatched and reviewed on 2026-07-26. A1 and B1 both implemented, both
-independently verified against their Done-when gates, both APPROVE from a
-`code-reviewer` pass. A2 came along inside A1's diff (dispatch-prompt error, see
-below) and was verified separately against the built wheel. **All three are
-uncommitted** — the working tree holds wave 1 plus A2, awaiting a commit.
+**All originally-planned tickets are done and committed** as of 2026-07-26: A1, A2,
+B1 (`d3e11a9`), B2 (`4a8597c`), A3 (`33536af`), C2 (`9e27d3b`), C1 (`fc953f5`). Every
+ticket was verified against its Done-when by the dispatcher rather than on the
+implementer's self-report. Working tree clean; 258 tests pass, ruff clean.
 
-Remaining: A3 and B2 (wave 2), C1 (wave 3, now unblocked since A2 is done).
+One ticket remains, and it is not optional: **C3** — C1's packaging guard never runs
+in CI, so the regression it exists to prevent is still unguarded on every pull request.
+Nothing pushed since wave 1.
 
 **The panel was one model, not three.** codex (session 142) delivered a
 substantive critique. gemini (143) failed on expired OAuth; grok (144) returned
@@ -35,9 +36,15 @@ before dispatching wave 1.
 | A1 | package boundary | DONE | — | 1 |
 | B1 | identification cohesion | DONE | — | 1 |
 | A2 | package boundary | DONE¹ | A1 | 2 |
-| A3 | package boundary | TODO | A1 | 2 |
-| B2 | identification cohesion | TODO | B1 (collision) | 2 |
-| C1 | regression guard | TODO | A2 | 3 |
+| A3 | package boundary | DONE | A1 | 2 |
+| B2 | identification cohesion | DONE | B1 (collision) | 2 |
+| C1 | regression guard | DONE² | A2 | 3 |
+| C2 | regression guard | DONE | — | 3 |
+| C3 | regression guard | TODO | C1 | 4 |
+
+² C1 also lacks a reviewer pass — `rev-C1` went idle without reporting. Verified
+independently by the dispatcher, including the teeth proof and a `configparser`
+case-folding defect found and fixed. See `logs/2026-07-26_C1.md`.
 
 ¹ A2 did **not** get its own implementer+reviewer pass. Its edit landed inside A1's
 diff because the A1 dispatch prompt paraphrased the ticket and absorbed A2's scope.
@@ -51,9 +58,13 @@ see `logs/2026-07-26_A2.md`. Recorded DONE on that evidence, not on assertion.
   full-suite gate each ticket listed saw the other's in-flight edits. The reliable
   signals were the per-ticket static gates plus a single full-suite run by the
   dispatcher after both landed.
-- **Wave 2:** A3, B2 remaining (A2 ✅ — see footnote). A3 is `skill/**`, B2 is
-  `ident.py`/`sign.py`/`api.md`/`test_model.py`. Disjoint, dispatchable in parallel.
-- **Wave 3:** C1 — unblocked now that A2 is done.
+- **Wave 2:** A2, A3, B2 — ✅ done. Run serially, not in parallel: B2 edits
+  `skill/references/api.md` and A3 edits `skill/*/README.md`, both inputs to
+  `tests/test_skill_docs.py`, which appears in both tickets' Done-when. Files were
+  disjoint but *gates* were not — the distinction that matters for parallel dispatch.
+- **Wave 3:** C1, C2 — ✅ done, genuinely parallel-safe (`tests/test_packaging.py`
+  versus `tests/test_handbook.py`, no shared gate).
+- **Wave 4:** C3 — the CI build step. Cannot be verified locally by construction.
 
 ## What the panel changed
 
@@ -93,17 +104,54 @@ see `logs/2026-07-26_A2.md`. Recorded DONE on that evidence, not on assertion.
 2. **Parallel same-tree dispatch makes a full-suite Done-when unreliable.** Each
    agent sees the other's half-finished edits. Either keep per-ticket gates scoped to
    files that ticket owns, or run parallel tickets in separate worktrees.
-3. **The B1 asymmetry invariant is stated too broadly in `TICKETS.md`.** "`sign` does
-   not restore the column" is true of the *non-IV rotation path* only; `sign.py:157`
-   (sign+IV) does restore, and always did. A later audit reading it literally will
-   raise a false positive.
+3. **The B1 asymmetry invariant was stated too broadly in `TICKETS.md`** — now fixed
+   there. "`sign` does not restore the column" holds for the *non-IV rotation path*
+   only; `sign.py`'s sign+IV path does restore, and always did. Separately, the break
+   is conditional on the instrument's sample, not automatic. Both precisions are now
+   in B1's ticket text and in the `ident.py`/`sign.py` docstrings.
+4. **Prose about a numerical invariant needs a measurement, not an adjective.** B2
+   shipped "iv deliberately does not satisfy `sigma == B B.T`" — an absolute claim
+   that is false when the instrument spans the full VAR sample. Caught only by
+   running it. If a docstring asserts a numerical property, verify it numerically
+   before believing it, whoever wrote it.
+
+## Two unpassable gates found — a pattern, not two accidents
+
+Two of six tickets shipped with a **Done-when that could never pass**:
+
+1. **A1** asserted "249 tests collected". The real baseline at `a5710ec` is 252,
+   per-file identical — stale when written.
+2. **A3** used `grep -rl ... | xargs grep -Lc "..."` expecting empty output. `-c`
+   overrides `-L`, so it prints counts unconditionally.
+
+Both were authored without being executed. Neither was caught by the advisory panel.
+The rule going forward: **run every Done-when command against the pre-ticket tree
+while writing it** — a gate that has never been executed is a guess. Note it should
+fail before the ticket and pass after; A1's would have failed in both directions.
+
+## Three defects that only surfaced by running things
+
+Each passed every gate it was subject to, and each was found by executing rather than
+reading. This is the plan's most transferable output:
+
+1. **B2** shipped an absolute claim — "iv deliberately does not satisfy
+   `sigma == B B.T`" — that is false when the instrument spans the full VAR sample
+   (`5.551e-16` versus `9.537e-02`). A docstring, so no test could ever fail.
+2. **C1**'s `configparser` lower-cased console-script names, which would fail the
+   entry-point comparison for a reason unrelated to packaging. Invisible because every
+   current script is lower-case.
+3. **C1** never runs in CI at all (→ C3). All four tests skip on every pull request
+   while the suite reports green.
+
+The pattern: a green suite is evidence about what was executed, not about what was
+claimed. Prose claims and skipped tests are both invisible to it.
 
 ## Next action
 
-**Commit wave 1 + A2** — the tree is verified but uncommitted; nothing should be
-dispatched on top of an uncommitted base. Then dispatch A3 and B2 in parallel
-(file-disjoint), with C1 following.
+Dispatch **C3** — add `uv build` to `.github/workflows/ci.yml` before the pytest step.
+Until it lands, C1 is a guard that never fires where it matters, and the branch should
+not be presented as having packaging protection.
 
-The plan's original suggestion to re-run `/plan review` with gemini re-authenticated
-was skipped before wave 1. Wave 1 came back clean, so the codex-only critique held up
-for stream A/B basics — but B2 and C1 have had exactly one model's eyes on them.
+Then push the branch and open the PR. Still outstanding: the plan's panel was
+effectively one model (codex) — gemini failed on expired OAuth, grok returned empty.
+C1/C2/C3 were never panel-reviewed at all.

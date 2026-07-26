@@ -93,7 +93,10 @@ the instructions — they are still correct for the audience that regenerates do
 `src/pyvartoolbox/_graph.py` docstring text as relocated by A1
 
 **Done when:**
-- `grep -rl "pyvartoolbox-convert-handbook\|pyvartoolbox-graph-diagram" skill/ | xargs grep -Lc "repo checkout\|maintainer"` prints nothing
+- `grep -rl "pyvartoolbox-convert-handbook\|pyvartoolbox-graph-diagram" --include="*.md" skill/ tools/ | xargs grep -L "repo checkout\|maintainer"` prints nothing
+  *(corrected 2026-07-26: the original used `grep -Lc`, where `-c` overrides `-L`,
+  so it printed counts unconditionally and could never pass. Verified with the
+  fixed form.)*
 - `uv run pytest tests/test_skill_docs.py tests/test_concept_graph.py tests/test_handbook.py -q` exits 0
 
 ---
@@ -111,8 +114,19 @@ load-bearing numerical routine drift; this one underpins proxy-SVAR and sign+IV.
 (currently `ident._cholesky`, keeping its positive-definite error message
 verbatim) and a single `orthonormal_completion(q1, nvar)`. Rewrite both call
 sites. **Preserve the behavioural difference:** `ident._complete` restores the
-identified column *after* completion, deliberately breaking `B @ B.T == sigma`;
-`sign` does not. That asymmetry is intentional and tested.
+identified column *after* completion, so `B @ B.T == sigma` need not hold; the
+**plain non-IV rotation path** in `sign.py` does not restore, and satisfies the
+identity exactly. That asymmetry is intentional and tested.
+
+*Two precisions added 2026-07-26, both found during implementation — the original
+wording would mislead a later audit:*
+- *The rule is scoped to the non-IV path. `sign.py`'s **sign+IV** path also restores
+  column 0 (pre-existing, untouched by B1), so "`sign` does not restore" is false read
+  literally of the module.*
+- *"Deliberately breaking" overstates it. The break depends on `||q1|| != 1`, which
+  happens only when the instrument is observed on a shorter sample than `sigma`.
+  Measured: `5.551e-16` when the instrument spans the full VAR sample versus
+  `9.537e-02` when it does not.*
 
 **Files:** `src/pyvartoolbox/_linalg.py` (new), `src/pyvartoolbox/ident.py`,
 `src/pyvartoolbox/sign.py`
@@ -153,6 +167,54 @@ happen. If B1 is dropped, B2 becomes wave 1.
 ---
 
 ## Stream C — regression guard
+
+### TICKET-C3 — Make the packaging guard actually run in CI · TODO · depends-on: C1 · wave 4
+**Problem:** C1's `tests/test_packaging.py` skips when no matching wheel is in
+`dist/`. `.github/workflows/ci.yml:20-22` runs `uv sync`, `ruff`, `pytest` and
+**never `uv build`**, so `dist/` does not exist in CI and all four packaging tests
+skip on every run, on every Python version. The suite reports green while the guard
+asserts nothing. C1's Problem statement — "nothing stops the next dev-only module
+re-entering the wheel, because nobody inspects a built artifact" — is therefore still
+true after C1 ships, in the one place that checks every PR.
+
+The skip-when-unbuilt behaviour is correct and specified; the gap is that nothing in
+CI ever builds. Found by the dispatcher while reviewing C1, not by C1's own gates —
+every one of which passes locally.
+
+**Do:** Add a `uv build` step to `.github/workflows/ci.yml` before the pytest step so
+the packaging tests execute rather than skip. Keep the skip path intact for local runs.
+
+**Files:** `.github/workflows/ci.yml`
+
+**Done when:**
+- `.github/workflows/ci.yml` contains a `uv build` step ordered before the `uv run pytest` step
+- a CI run on the branch shows `tests/test_packaging.py` with 4 passed and 0 skipped —
+  paste the run URL in the ticket log. Local verification is not sufficient for this
+  ticket, since the whole defect is CI-specific.
+
+### TICKET-C2 — Guard the generated handbook index · TODO · depends-on: none · wave 3
+**Problem:** `tests/test_handbook.py:19` excludes `INDEX.md` from the `pages`
+fixture with the comment "INDEX and README are hand-written scaffolding, not
+converted pages". That is false for `INDEX.md`: it is generator output from
+`_index()` in `_convert.py`, proven during the A3 review by regenerating from a
+fresh upstream clone and byte-diffing the result. The consequence is that nothing
+regeneration-tests `INDEX.md` — it gets substring assertions at
+`tests/test_handbook.py:35,96-97` and nothing more, so a hand-edit that drifts from
+the generator would pass CI. `GRAPH.md` has exactly this protection
+(`test_diagram_is_current`); `INDEX.md` does not.
+
+**Do:** Correct the misleading comment, and add a regeneration check for `INDEX.md`
+mirroring `test_concept_graph.py::TestDiagram::test_diagram_is_current` — call
+`_index()` and byte-compare against the checked-in file. Skip cleanly when the
+handbook has not been generated, as the existing `pages` fixture already does.
+
+**Files:** `tests/test_handbook.py`
+
+**Done when:**
+- `grep -c "hand-written scaffolding" tests/test_handbook.py` prints `0`
+- `uv run pytest tests/test_handbook.py -q` exits 0
+- temporarily appending a line to `skill/handbook/INDEX.md` makes it fail; restore
+  the file with `uv run pyvartoolbox-convert-handbook` and confirm it passes again
 
 ### TICKET-C1 — Assert the distribution stays clean · TODO · depends-on: A2 · wave 3
 **Problem:** A1/A2 fix today's instance. Nothing stops the next dev-only module
