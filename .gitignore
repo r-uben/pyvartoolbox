@@ -13,3 +13,9 @@ build/
 # Library, not an application: consumers resolve their own versions, and an
 # unpinned CI is what catches upstream numpy breakage early.
 uv.lock
+
+# Obsidian writes workspace state into any folder opened as a vault. Keep the
+# graph-view colour groups (they encode the note taxonomy and are worth
+# sharing); ignore the per-machine workspace churn.
+skill/graph/.obsidian/*
+!skill/graph/.obsidian/graph.json

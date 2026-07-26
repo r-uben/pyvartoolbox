@@ -73,3 +73,19 @@ intend to use.
 
 Choosing a strategy: [[point-vs-set-identification]] then
 [[../references/identification|the identification guide]].
+
+## Viewing this as a graph
+
+**Obsidian** is the best way — these notes are already wikilinked, so no
+conversion is involved. Open this folder as a vault and press `⌘G` for Graph
+View, or `⌘⇧G` for the local graph of whichever note is focused.
+
+A `.obsidian/graph.json` ships with the folder, so nodes are coloured by the
+`type` and `layer` frontmatter on first open: foundations blue, identification
+schemes red, reported objects green, inference amber, pitfalls purple. Only that
+file is tracked; the rest of Obsidian's workspace state is gitignored.
+
+Foam, Logseq and Dendron read this layout directly too.
+
+For a static picture that needs no tooling, [GRAPH.md](GRAPH.md) renders on
+GitHub.
