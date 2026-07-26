@@ -16,7 +16,12 @@ HANDBOOK = Path(__file__).parent.parent / "skill" / "handbook"
 
 @pytest.fixture(scope="module")
 def pages():
-    files = sorted(p for p in HANDBOOK.glob("*.md") if p.name != "INDEX.md")
+    # INDEX and README are hand-written scaffolding, not converted pages. README
+    # in particular quotes the very patterns these tests forbid, since it
+    # documents what the conversion strips.
+    files = sorted(
+        p for p in HANDBOOK.glob("*.md") if p.name not in ("INDEX.md", "README.md")
+    )
     if not files:
         pytest.skip("handbook not generated; run pyvartoolbox-convert-handbook")
     return {p.name: p.read_text(encoding="utf-8") for p in files}
