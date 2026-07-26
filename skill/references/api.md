@@ -32,8 +32,23 @@ Methods:
 
 ## Identification
 
-`ident` accepts `"chol"`, `"longrun"`, `"iv"`. Sign-based schemes go through
-`sign_restricted_irf` instead, since they return a distribution.
+**The rule: point-identified schemes are called by name, set-identified schemes
+are sampled.** A point-identified scheme pins down a single impact matrix `B`,
+so it is reachable through `ident=` and `impact_matrix`. A set-identified scheme
+admits a whole family of admissible `B`, so there is nothing for a function to
+return except a distribution, and it is reachable only through
+`sign_restricted_irf`. The same rule places the code: `pyvartoolbox.ident` holds
+the point-identified schemes and the dispatcher, `pyvartoolbox.sign` holds the
+set-identified ones and the sampler.
+
+| | Schemes | Call |
+| --- | --- | --- |
+| Point-identified | `"chol"`, `"longrun"`, `"iv"` | `ident=` / `impact_matrix` |
+| Set-identified | sign, narrative sign, sign+instrument | `sign_restricted_irf` |
+
+Passing a set-identified name to `ident=` raises and names
+`sign_restricted_irf`. The scheme *is* implemented — the error means it has no
+single `B` to hand back, not that it is missing.
 
 ```python
 vt.impact_matrix(model, ident="chol", **kw)   # -> B, (nvar, nvar)

@@ -1,8 +1,28 @@
-"""Sign-restriction identification (port of ``SignRestrictions.m``).
+"""Set-identified schemes and the sampler over the identified set.
 
-Draws orthonormal rotations of the Cholesky factor until one satisfies a sign
-pattern. Unlike the other schemes this is a *set* identification: there is no
-single answer, only a distribution over admissible impact matrices.
+Port of ``SignRestrictions.m``. Draws orthonormal rotations of the Cholesky
+factor until one satisfies a sign pattern.
+
+Which module a scheme lives in
+------------------------------
+This module holds the **set-identified** schemes — sign restrictions, narrative
+sign restrictions, and sign restrictions combined with an instrument. Their
+assumptions admit a whole family of admissible impact matrices rather than one,
+so the answer is a *distribution*: ``sign_restricted_irf`` samples the set and
+reports percentile bands across accepted draws. ``ident.py`` holds the
+**point-identified** schemes, where the assumptions pin down a single ``B0inv``
+and ``impact_matrix`` can return it. That is the whole rule, and it is why
+``impact_matrix(model, "sign")`` raises and redirects here: the scheme is
+implemented, but not as a function returning one matrix.
+
+Every draw is a full square ``B0inv``, since the narrative check and the
+historical decomposition both need to invert it. A plain sign draw is
+``P @ Q`` with ``Q`` orthonormal, so it satisfies ``sigma == B @ B.T`` exactly.
+The sign+IV path is the exception: it restores the instrument-identified column
+0 on top of the rotation, so the identity need not hold — for the same reason,
+and under the same condition, as ``ident._complete``: the restored column is
+only approximately unit-norm in the Cholesky basis when the instrument is
+observed on a shorter sample than ``sigma``.
 
 Restrictions are given as an ``(nvar, nshock)`` array of ``+1`` (response must be
 non-negative), ``-1`` (non-positive), and ``0`` (unrestricted). Restrictions can

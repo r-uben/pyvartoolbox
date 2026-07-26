@@ -145,6 +145,19 @@ class TestIdentification:
         with pytest.raises(NotImplementedError, match="sign restrictions"):
             m.irf(horizon=5, ident="sign")
 
+    def test_set_identified_scheme_points_at_the_sampler(self, y_small):
+        """A set-identified name must not read as "missing feature".
+
+        `impact_matrix` returns one `B`; a set-identified scheme has none, so
+        the error has to send the user to the sampler rather than imply the
+        scheme is unimplemented."""
+        from pyvartoolbox.ident import impact_matrix
+
+        m = VARmodel(y_small, nlags=2)
+        for scheme in ("sign", "narrative", "signiv"):
+            with pytest.raises(NotImplementedError, match="sign_restricted_irf"):
+                impact_matrix(m, scheme)
+
     def test_unknown_scheme_raises_value_error(self, y_small):
         m = VARmodel(y_small, nlags=2)
         with pytest.raises(ValueError, match="unknown identification"):
